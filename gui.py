@@ -6,6 +6,23 @@
 # inside MainUI.__init__ (after the application has been created).  This
 # branch no longer supports falling back to native Qt widgets.
 
+# 关于页信息变量
+ABOUT_CONTENT = """
+<h2>Fast Embed Sub v0.1.0 beta</h2>
+<p><b>作者:</b> Jeoitim Yip</p>
+<p><b>GitHub:</b> <a href="https://github.com/Jeoitim/fast-embed-sub">https://github.com/Jeoitim/fast-embed-sub</a></p>
+<p><b>依赖库:</b></p>
+<ul>
+    <li>PySide6</li>
+    <li>PySide6-Fluent-Widgets</li>
+</ul>
+<p><b>鸣谢:</b></p>
+<ul>
+    <li>FFmpeg项目</li>
+    <li>所有开源贡献者</li>
+</ul>
+"""
+
 from PySide6.QtWidgets import (QVBoxLayout, QHBoxLayout, QGridLayout,
                                QFileDialog, QSizePolicy, QToolBar, QMainWindow, QInputDialog)
 from PySide6.QtGui import QIcon, QDragEnterEvent, QDropEvent, QAction
@@ -343,20 +360,7 @@ class MainUI(QMainWindow):
         # 关于内容
         about_content = self._TextEdit()
         about_content.setReadOnly(True)
-        about_content.setHtml("""
-        <h2>Fast Embed Sub v1.0 preview</h2>
-        <p><b>作者:</b> Your Name</p>
-        <p><b>依赖库:</b></p>
-        <ul>
-            <li>PySide6</li>
-            <li>PySide6-Fluent-Widgets</li>
-        </ul>
-        <p><b>鸣谢:</b></p>
-        <ul>
-            <li>FFmpeg项目</li>
-            <li>所有开源贡献者</li>
-        </ul>
-        """)
+        about_content.setHtml(ABOUT_CONTENT)
         layout.addWidget(about_content)
         
         # 添加到堆叠窗口
