@@ -1,10 +1,8 @@
 import os
 import re
 import sys
-from PySide6.QtWidgets import QApplication, QMessageBox, QProgressDialog
-from PySide6.QtCore import QTimer
-from gui import MainUI
-from PySide6.QtCore import QProcess
+from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QTimer, QProcess
 
 class TranscodeEngine:
     def __init__(self, ffmpeg_path="components/ffmpeg.exe"):
@@ -185,7 +183,30 @@ class TranscodeEngine:
 
 # 添加主程序入口点
 def main():
+    # create the application first – this must occur before any QWidget is
+    # instantiated.  doing the fluent widgets import (`qfluentwidgets`) afterwards
+    # avoids the frequent error about "Must construct a QApplication before a QWidget".
     app = QApplication(sys.argv)
+
+    # apply fluent theme (PySide6‑Fluent‑Widgets) now that QApplication exists
+    # the package imports as `qfluentwidgets`.  If it's not installed we
+    # show an error dialog and exit rather than falling back to native Qt.
+    try:
+        from qfluentwidgets import setTheme, Theme, MessageBox
+    except ImportError:
+        # if import fails we can't proceed
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.critical(None, "缺少依赖",
+                             "未检测到 PySide6-Fluent-Widgets 库。请运行\n"
+                             "`pip install PySide6-Fluent-Widgets` 后重试。")
+        sys.exit(1)
+    setTheme(Theme.DARK)
+
+    # import MainUI now that QApplication exists (the class itself won't
+    # create a widget until we instantiate it, but some fluent helpers may
+    # create proxies during import so we delay for safety)
+    from gui import MainUI
+
     window = MainUI()
     window.show()
     sys.exit(app.exec())

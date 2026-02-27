@@ -5,6 +5,15 @@
 ## 功能特点
 
 -   **拖拽支持**：视频、字幕、输出目录均支持拖拽操作
+
+> ⚠️ 本分支依赖 **PySide6-Fluent-Widgets**（PyPI 名称），可通过
+> ```bash
+> pip install PySide6-Fluent-Widgets
+> ```
+> 安装。导入语句为 `import qfluentwidgets` 。
+> 主窗口基类为 `FluentWindow`，程序启动时会自动应用暗色 Fluent
+> 主题，整个界面将呈现原生 Fluent 设计风格。
+
 -   **自动检测**：输入视频后自动检测同名字幕文件（.srt/.ass/.ssa）
 -   **预设系统**：支持自定义预设模板，灵活配置压制参数
 -   **实时进度**：显示压制进度条和详细日志

@@ -4,4 +4,6 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "PySide6-Fluent-Widgets>=2.0",  # required when using the fluent-themed UI branch
+]
