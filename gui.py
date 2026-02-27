@@ -34,7 +34,7 @@ class DragDropLineEdit(QLineEdit):
 class MainUI(QWidget):
     def __init__(self):
         super().__init__()  # 添加这行来正确调用父类构造函数
-        self.setWindowTitle("极简字幕压制工具")
+        self.setWindowTitle("Fast Embed Sub")
         self.resize(600, 500)
         # 设置应用图标
         icon_path = os.path.join("assets", "icon.jpg")
