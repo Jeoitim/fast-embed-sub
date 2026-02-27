@@ -2,6 +2,23 @@
 
 本软件采用纯数据驱动的预设系统。任何放在 `presets/` 目录下的 `.txt` 文件都会被自动识别为压制选项。
 
+## 模块化预设配置分享理念
+
+Fast Embed Sub 的核心价值在于**模块化的预设配置分享机制**。我们相信优秀的压制参数应该被共享和复用，而不是每个人都重复调试。
+
+### 为什么需要模块化预设？
+
+-   **专业参数复用**：让有经验的用户将调试好的参数打包分享
+-   **零学习成本**：普通用户只需下载预设文件即可获得专业级压制效果
+-   **快速上手**：无需了解复杂的FFmpeg参数，一键获得理想效果
+-   **持续优化**：社区可以不断改进和分享更好的预设配置
+
+### 如何获取和分享预设？
+
+**获取预设：** 1. 访问预设分享社区或GitHub仓库 2. 下载需要的 `.txt` 预设文件 3. 直接放入软件的 `presets/` 目录 4. 重启软件即可使用
+
+**分享预设：** 1. 将调试好的预设保存为 `.txt` 文件 2. 上传到预设分享平台 3. 附上详细的使用说明和效果展示 4. 标注适用场景（如上传网站、本地收藏等）
+
 ## 预设文件格式
 
 预设文件必须包含两部分： 1. **第一行（必须）**：以 `#` 开头的备注信息。这段文字会显示在软件界面的说明栏中。 2. **第二行及以后**：实际执行的命令行模板。
@@ -10,15 +27,15 @@
 
 在编写命令行时，请使用以下占位符，软件在运行时会自动替换为用户的实际路径：
 
-* `{input_v}` : 视频源文件路径。
+-   `{input_v}` : 视频源文件路径。
 
-* `{input_s}` : 字幕源文件路径（软件已自动处理 Windows 盘符和斜杠转义，直接放入滤镜参数即可）。
+-   `{input_s}` : 字幕源文件路径（软件已自动处理 Windows 盘符和斜杠转义，直接放入滤镜参数即可）。
 
-* `{output_dir}` : 输出目录路径。
+-   `{output_dir}` : 输出目录路径。
 
-* `{filename}` : 输出文件名（不包含扩展名）。
+-   `{filename}` : 输出文件名（不包含扩展名）。
 
-* `{format}` : 输出文件格式（扩展名，不包含点号）。注意：在预设中可以使用 `{format:webm}` 来指定特定格式，这样即使用户选择了其他格式，也会强制使用 webm 格式。
+-   `{format}` : 输出文件格式（扩展名，不包含点号）。注意：在预设中可以使用 `{format:webm}` 来指定特定格式，这样即使用户选择了其他格式，也会强制使用 webm 格式。
 
 ### 核心路径规范
 
@@ -32,17 +49,17 @@
 
 ```         
 #适合上传视频网站：速度快，画质极高(CRF 18)，体积中等偏大，音频无损直通。
-components/ffmpeg.exe -i "{input_v}" -vf "subtitles='{input_s}'" -c:v libx264 -preset fast -crf 18 -c:a copy -y "{output}"
+components/ffmpeg.exe -i "{input_v}" -vf "subtitles={input_s}" -c:v libx264 -preset fast -crf 18 -c:a copy -y "{output}"
 ```
 
 ```         
 #VP9 编码，高质量，体积较小
-components/ffmpeg.exe -i "{input_v}" -vf "subtitles='{input_s}'" -c:v libvpx-vp9 -b:v 0 -crf 30 -c:a libopus -b:a 128k -y "{output}"
+components/ffmpeg.exe -i "{input_v}" -vf "subtitles={input_s}" -c:v libvpx-vp9 -b:v 0 -crf 30 -c:a libopus -b:a 128k -y "{output}"
 ```
 
 ## **强制使用 WebM 格式的示例**
 
 ```         
 #VP9 编码，强制使用webm容器格式
-components/ffmpeg.exe -i "{input_v}" -vf "subtitles='{input_s}'" -c:v libvpx-vp9 -b:v 0 -crf 30 -c:a libopus -b:a 128k -y "{output_dir}/{filename}.{format:webm}"
+components/ffmpeg.exe -i "{input_v}" -vf "subtitles={input_s}" -c:v libvpx-vp9 -b:v 0 -crf 30 -c:a libopus -b:a 128k -y "{output_dir}/{filename}.{format:webm}"
 ```

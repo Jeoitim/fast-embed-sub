@@ -517,8 +517,7 @@ class MainUI(QMainWindow):
                 # 修改：根据是否有字幕选择不同的处理方式
                 if sub:
                     # 有字幕的情况，使用原有的处理逻辑
-                    escaped_sub = sub.replace("\\", "/").replace(":", "\\:")
-                    engine.run_task(template, video, escaped_sub, output_dir, filename, format)
+                    engine.run_task(template, video, sub, output_dir, filename, format)
                 else:
                     # 没有字幕的情况，从命令模板中移除字幕相关的参数
                     # 删除 -vf "subtitles='{input_s}'" 这一部分

@@ -1,2 +1,2 @@
 # 适合上传视频网站：速度快，画质极高(CRF 18)，体积中等偏大，音频无损直通。
-components/ffmpeg.exe -i "{input_v}" -vf "subtitles='{input_s}'" -c:v libx264 -preset fast -crf 18 -c:a copy -y "{output_dir}/{filename}.{format}"
+components/ffmpeg.exe -i "{input_v}" -vf "subtitles={input_s}" -c:v libx264 -preset fast -crf 18 -c:a copy -y "{output_dir}/{filename}.{format}"

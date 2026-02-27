@@ -1,2 +1,2 @@
 # 适合本地收藏与BT分享：采用 H.265 10bit 编码，体积小画质极佳，但压制速度较慢，音频无损直通。
-components/ffmpeg.exe -i "{input_v}" -vf "subtitles='{input_s}'" -c:v libx265 -preset slow -crf 20 -pix_fmt yuv420p10le -c:a copy -y "{output_dir}/{filename}.{format:mkv}"
+components/ffmpeg.exe -i "{input_v}" -vf "subtitles={input_s}" -c:v libx265 -preset slow -crf 20 -pix_fmt yuv420p10le -c:a copy -y "{output_dir}/{filename}.{format:mkv}"

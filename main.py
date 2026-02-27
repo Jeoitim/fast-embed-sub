@@ -1,12 +1,24 @@
 import os
 import re
 import sys
+import uuid # 用于生成乱码后缀防止冲突
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QTimer, QProcess
 
 class TranscodeEngine:
     def __init__(self, ffmpeg_path="components/ffmpeg.exe"):
-        self.ffmpeg_path = os.path.abspath(ffmpeg_path)
+        # 修改：添加兼容性逻辑处理打包后的路径问题
+        if getattr(sys, 'frozen', False):
+            # 打包后的可执行文件路径
+            self.bundle_dir = os.path.dirname(sys.executable)
+        else:
+            # 开发环境下的路径
+            self.bundle_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # 构建ffmpeg的完整路径
+        self.ffmpeg_path = os.path.join(self.bundle_dir, ffmpeg_path)
+        self.ffmpeg_path = os.path.abspath(self.ffmpeg_path)
+        
         self.process = QProcess()
         # 连接信号
         self.process.started.connect(self.on_process_started)
@@ -40,13 +52,25 @@ class TranscodeEngine:
 
     def run_task(self, template, video, sub, output_dir, filename=None, format=None):
         """将路径填入模板并执行"""
-        # 修改：只有在有字幕时才处理字幕路径
-        if sub:
-            # 处理 Windows 路径下的反斜杠，尤其是 subtitles 滤镜里的路径转义
-            escaped_sub = sub.replace("\\", "/").replace(":", "\\:") 
+        # 1. 如果用户没填字幕，使用 assets 里的空字幕
+        if not sub:
+            # 使用 self.bundle_dir 兼容打包环境
+            sub = os.path.join(self.bundle_dir, "assets", "empty.srt")
+    
+        # 2. 统一处理路径（包括用户填的或我们的 empty.srt）
+        abs_sub_path = os.path.abspath(sub)
+        drive, rest = os.path.splitdrive(abs_sub_path)
+    
+        if drive:
+            # 结果类似于 C\:/Users/.../assets/empty.srt
+            path_fixed = f"{drive[0].upper()}\\:{rest.replace('\\', '/')}"
         else:
-            escaped_sub = ""
+            path_fixed = abs_sub_path.replace("\\", "/")
+    
+        # 3. 始终生成带有 filename 的字符串
+        escaped_sub = f"filename='{path_fixed}'"
         
+
         # 获取输入文件的文件名和扩展名
         input_filename = os.path.splitext(os.path.basename(video))[0]
         input_format = os.path.splitext(video)[1][1:]  # 移除点号
