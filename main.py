@@ -40,8 +40,12 @@ class TranscodeEngine:
 
     def run_task(self, template, video, sub, output_dir, filename=None, format=None):
         """将路径填入模板并执行"""
-        # 处理 Windows 路径下的反斜杠，尤其是 subtitles 滤镜里的路径转义
-        escaped_sub = sub.replace("\\", "/").replace(":", "\\:") 
+        # 修改：只有在有字幕时才处理字幕路径
+        if sub:
+            # 处理 Windows 路径下的反斜杠，尤其是 subtitles 滤镜里的路径转义
+            escaped_sub = sub.replace("\\", "/").replace(":", "\\:") 
+        else:
+            escaped_sub = ""
         
         # 获取输入文件的文件名和扩展名
         input_filename = os.path.splitext(os.path.basename(video))[0]

@@ -7,7 +7,7 @@
 # branch no longer supports falling back to native Qt widgets.
 
 from PySide6.QtWidgets import (QVBoxLayout, QHBoxLayout, QGridLayout,
-                               QFileDialog, QSizePolicy, QToolBar, QMainWindow)
+                               QFileDialog, QSizePolicy, QToolBar, QMainWindow, QInputDialog)
 from PySide6.QtGui import QIcon, QDragEnterEvent, QDropEvent, QAction
 from PySide6.QtCore import Qt, QTimer, QProcess, QMimeData
 import os
@@ -456,8 +456,9 @@ class MainUI(QMainWindow):
         filename = self.filename_input.text() or None
         format = self.format_combo.currentText()
 
-        if not video or not sub:
-            self._MessageBox.warning(self, "警告", "请确保已选择视频和字幕")
+        # 修改：只检查视频路径，不再强制要求字幕路径
+        if not video:
+            self._MessageBox.warning(self, "警告", "请确保已选择视频文件")
             return
 
         # 如果输出目录为空，则使用视频所在目录
@@ -479,18 +480,21 @@ class MainUI(QMainWindow):
 
         # 检查输出文件是否已存在
         if os.path.exists(output_path):
-            from PySide6.QtWidgets import QMessageBox
-            reply = QMessageBox.question(
+            from PySide6.QtWidgets import QMessageBox, QLineEdit
+            # 强制用户更改文件名
+            new_filename, ok = QInputDialog.getText(
                 self,
                 "文件已存在",
-                f"输出文件已存在：\n{output_path}\n\n是否覆盖？",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
+                f"输出文件已存在：\n{output_path}\n\n请输入新的文件名（不含扩展名）:",
+                QLineEdit.Normal,
+                filename
             )
-            if reply == QMessageBox.No:
+            if not ok or not new_filename:
                 return
-        else:
-            print("文件不存在，无需覆盖提示")
+            # 更新文件名并重新构造输出路径
+            filename = new_filename
+            output_path = os.path.join(output_dir, f"{filename}.{format}")
+            self.filename_input.setText(filename)
 
         # 获取当前选中的预设
         current_preset = self.preset_combo.currentText()
@@ -506,7 +510,18 @@ class MainUI(QMainWindow):
                 self.btn_start.setVisible(False)
                 self.btn_cancel.setVisible(True)
 
-                engine.run_task(template, video, sub, output_dir, filename, format)
+                # 修改：根据是否有字幕选择不同的处理方式
+                if sub:
+                    # 有字幕的情况，使用原有的处理逻辑
+                    escaped_sub = sub.replace("\\", "/").replace(":", "\\:")
+                    engine.run_task(template, video, escaped_sub, output_dir, filename, format)
+                else:
+                    # 没有字幕的情况，从命令模板中移除字幕相关的参数
+                    # 删除 -vf "subtitles='{input_s}'" 这一部分
+                    modified_template = re.sub(r'-vf\s+"subtitles=\'\{input_s\}\'"', '', template)
+                    # 清理多余的空格
+                    modified_template = re.sub(r'\s+', ' ', modified_template).strip()
+                    engine.run_task(modified_template, video, "", output_dir, filename, format)
 
                 # 启动定时器监控进程状态
                 self.monitor_timer = QTimer()
