@@ -43,3 +43,26 @@ nuitka "--standalone" `
        "main.py"
 
 Write-Host "打包完成！生成的程序位于 $OutputDir/main.dist/" -ForegroundColor Cyan
+
+# 4. 强制搬运资源文件夹 (保底方案)
+$DistPath = "$OutputDir/main.dist"
+# 如果你指定了 --output-filename=FastEmbedSub，路径可能是 "$OutputDir/FastEmbedSub.dist"
+if (-not (Test-Path $DistPath)) {
+    $DistPath = Get-ChildItem -Path "$OutputDir/*.dist" | Select-Object -ExpandProperty FullName -First 1
+}
+
+Write-Host "`n正在执行资源物理搬运..." -ForegroundColor Yellow
+
+$FoldersToCopy = @("components", "presets", "assets")
+
+foreach ($Folder in $FoldersToCopy) {
+    if (Test-Path $Folder) {
+        $Dest = Join-Path $DistPath $Folder
+        Copy-Item -Path $Folder -Destination $DistPath -Recurse -Force
+        Write-Host " [OK] 已同步目录: $Folder -> $Dest" -ForegroundColor Green
+    } else {
+        Write-Host " [!] 警告: 未找到源目录 $Folder" -ForegroundColor Red
+    }
+}
+
+Write-Host "`n打包与资源同步完成！生成的程序位于: $DistPath" -ForegroundColor Cyan

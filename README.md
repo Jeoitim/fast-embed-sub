@@ -21,18 +21,11 @@
 -   **错误处理**：完善的错误提示和文件覆盖确认
 
 ## 🖼️ 界面预览
-
-::: {align="center"}
+<p>主界面 - 简洁直观的操作面板</p>
 <img src="https://github.com/user-attachments/assets/426be95b-9289-471e-93bd-541db95658e4" alt="主界面" width="1197" height="816"/>
 
-<p>主界面 - 简洁直观的操作面板</p>
-:::
-
-::: {align="center"}
-<img src="https://github.com/user-attachments/assets/f1fb9e6b-8661-406e-9f51-b48f46752a5d" alt="日志界面" width="1180" height="830"/>
-
 <p>日志界面 - 实时显示压制进度和详细信息</p>
-:::
+<img src="https://github.com/user-attachments/assets/f1fb9e6b-8661-406e-9f51-b48f46752a5d" alt="日志界面" width="1180" height="830"/>
 
 ## 🌟 模块化预设配置分享理念
 
