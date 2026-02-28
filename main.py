@@ -29,24 +29,41 @@ class TranscodeEngine:
         self.total_duration = None
         # 用于避免重复解析总时长
         self.duration_parsed = False
+        # 存储上次的进度值，避免频繁更新UI
+        self.last_progress = -1
         
     def get_presets(self):
-        """扫描 preset 文件夹，返回 {文件名: (备注, 命令模板)}"""
+        """获取预设列表"""
         presets = {}
-        preset_dir = "presets"
-        if not os.path.exists(preset_dir):
-            return presets
+        presets_dir = os.path.join(self.bundle_dir, "presets")
+        
+        if not os.path.exists(presets_dir):
+            # 如果presets目录不存在，创建默认预设
+            os.makedirs(presets_dir, exist_ok=True)
+            # 创建默认预设文件
+            default_preset_path = os.path.join(presets_dir, "默认.txt")
+            if not os.path.exists(default_preset_path):
+                with open(default_preset_path, 'w', encoding='utf-8') as f:
+                    f.write("# 适合上传视频网站：速度快，画质极高(CRF 18)，体积中等偏大，音频无损直通。\n")
+                    f.write('components/ffmpeg.exe -i "{input_v}" -vf "subtitles={input_s}" -c:v libx264 -preset fast -crf 18 -c:a copy -y "{output_dir}/{filename}.{format}"')
             
-        for f in os.listdir(preset_dir):
-            if f.endswith(".txt"):
-                with open(os.path.join(preset_dir, f), 'r', encoding='utf-8') as tf:
-                    content = tf.read().strip()
-                    # 修改正则表达式以支持无空格的备注行
-                    comment = re.search(r'^#\s*(.*)', content)
-                    comment_text = comment.group(1) if comment else "无备注"
-                    # 提取命令（去除备注行）
-                    cmd_template = re.sub(r'^#.*$', '', content, flags=re.MULTILINE).strip()
-                    presets[f.replace(".txt", "")] = (comment_text, cmd_template)
+        # 遍历presets目录下的所有.txt文件
+        for filename in os.listdir(presets_dir):
+            if filename.endswith('.txt'):
+                preset_path = os.path.join(presets_dir, filename)
+                try:
+                    with open(preset_path, 'r', encoding='utf-8') as f:
+                        lines = f.readlines()
+                        if len(lines) >= 2:
+                            description = lines[0].strip()
+                            if description.startswith('#'):
+                                description = description[1:].strip()
+                            template = ''.join(lines[1:]).strip()
+                            preset_name = os.path.splitext(filename)[0]
+                            presets[preset_name] = (description, template)
+                except Exception as e:
+                    print(f"读取预设文件 {filename} 时出错: {e}")
+        
         return presets
 
     def run_task(self, template, video, sub, output_dir, filename=None, format=None):
@@ -110,18 +127,29 @@ class TranscodeEngine:
         final_cmd = final_cmd.replace('components/ffmpeg.exe', f'"{self.ffmpeg_path}"')
             
         print(f"执行命令: {final_cmd}")
+        
+        # 将命令行输出到日志
+        if hasattr(QApplication.instance().activeWindow(), 'log_output'):
+            window = QApplication.instance().activeWindow()
+            window.log_output.append(f'<span style="color: blue;">执行命令: {final_cmd}</span>')
+        
         self.process.startCommand(final_cmd)
 
     def on_process_started(self):
         """进程开始时的回调"""
         print("FFmpeg 进程已启动")
+        # 将启动信息输出到日志
+        if hasattr(QApplication.instance().activeWindow(), 'log_output'):
+            window = QApplication.instance().activeWindow()
+            window.log_output.append('<span style="color: green;">FFmpeg 进程已启动</span>')
         
     def on_process_finished(self, exit_code, exit_status):
         """进程结束时的回调"""
         # 隐藏进度条
         if hasattr(QApplication.instance().activeWindow(), 'progress_bar'):
             window = QApplication.instance().activeWindow()
-            window.progress_bar.setVisible(False)
+            # 不再隐藏进度条，保持显示最终状态
+            # window.progress_bar.setVisible(False)
             
         if exit_status == QProcess.NormalExit:
             if exit_code == 0:
@@ -146,12 +174,19 @@ class TranscodeEngine:
     def on_ready_read_stdout(self):
         """读取标准输出"""
         data = self.process.readAllStandardOutput().data().decode('utf-8', errors='ignore')
-        print(f"STDOUT: {data.strip()}")
-        # 将标准输出添加到日志区域
-        if hasattr(QApplication.instance().activeWindow(), 'log_output'):
-            window = QApplication.instance().activeWindow()
-            window.log_output.append(data.strip())
-        
+        lines = data.split('\n')
+        for line in lines:
+            if not line.strip():
+                continue
+                
+            # 将标准输出添加到日志区域
+            if hasattr(QApplication.instance().activeWindow(), 'log_output'):
+                window = QApplication.instance().activeWindow()
+                # 使用默认颜色显示标准输出
+                window.log_output.append(line.strip())
+                    
+            print(f"STDOUT: {line.strip()}")
+
     def on_ready_read_stderr(self):
         """读取标准错误"""
         data = self.process.readAllStandardError().data().decode('utf-8', errors='ignore')
@@ -167,9 +202,18 @@ class TranscodeEngine:
                 
             # 检查是否是进度行（包含time=）
             if 'time=' in line and 'bitrate=' in line:
-                self._parse_progress(line)
-                # 不将进度行添加到日志（避免刷屏），但可以添加其他信息
-                continue
+                progress = self._parse_progress(line)
+                # 只有当进度发生变化时才更新UI，避免频繁刷新
+                if progress != self.last_progress:
+                    self.last_progress = progress
+                    # 更新进度条
+                    if hasattr(QApplication.instance().activeWindow(), 'progress_bar'):
+                        window = QApplication.instance().activeWindow()
+                        window.progress_bar.setValue(progress)
+                    # 同时将进度信息添加到日志（但不刷屏）
+                    if hasattr(QApplication.instance().activeWindow(), 'log_output'):
+                        window = QApplication.instance().activeWindow()
+                        window.log_output.append(f'<span style="color: #0078D4;">进度: {progress}%</span>')
                 
             # 检查是否是真正的错误（通常包含"Error"或"error"，但FFmpeg错误通常以大写开头）
             is_error = any(keyword in line for keyword in ['Error', 'error', 'Invalid', 'invalid', 'Failed', 'failed'])
@@ -193,20 +237,21 @@ class TranscodeEngine:
             hours, minutes, seconds = match.groups()
             self.total_duration = int(hours) * 3600 + int(minutes) * 60 + float(seconds)
             print(f"Total duration: {self.total_duration} seconds")
+            # 将总时长信息输出到日志
+            if hasattr(QApplication.instance().activeWindow(), 'log_output'):
+                window = QApplication.instance().activeWindow()
+                window.log_output.append(f'<span style="color: #0078D4;">视频总时长: {self.total_duration:.2f} 秒</span>')
 
     def _parse_progress(self, line):
-        """解析进度信息并更新进度条"""
+        """解析进度信息并返回进度百分比"""
         # 示例: frame= 121 fps=0.0 q=24.0 size= 1KiB time=00:00:03.96 bitrate= 2.1kbits/s speed=7.61x
         match = re.search(r'time=(\d+):(\d+):(\d+\.\d+)', line)
         if match and self.total_duration:
             hours, minutes, seconds = match.groups()
             current_time = int(hours) * 3600 + int(minutes) * 60 + float(seconds)
             progress = min(100, int((current_time / self.total_duration) * 100))
-            
-            # 更新进度条
-            if hasattr(QApplication.instance().activeWindow(), 'progress_bar'):
-                window = QApplication.instance().activeWindow()
-                window.progress_bar.setValue(progress)
+            return progress
+        return 0
 
 # 添加主程序入口点
 def main():

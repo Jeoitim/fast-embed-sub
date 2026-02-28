@@ -507,9 +507,10 @@ class MainUI(QMainWindow):
         if current_preset in presets:
             template = presets[current_preset][1]
             try:
-                # 重置进度条
+                # 重置进度条和日志
                 self.progress_bar.setValue(0)
                 self.progress_bar.setVisible(True)
+                self.log_output.clear()  # 清空之前的日志
                 
                 # 显示取消按钮，隐藏开始按钮
                 self.btn_start.setVisible(False)
@@ -542,21 +543,26 @@ class MainUI(QMainWindow):
     def cancel_transcoding(self):
         if hasattr(self, 'engine') and hasattr(self.engine, 'process'):
             self.engine.process.kill()
+        # 重置界面状态
+        self.reset_ui_state()
+
+    def reset_ui_state(self):
+        """重置UI状态"""
         self.progress_bar.setVisible(False)
+        self.progress_bar.setValue(0)
         # 隐藏取消按钮，显示开始按钮
         self.btn_cancel.setVisible(False)
         self.btn_start.setVisible(True)
+        # 停止监控定时器
+        if hasattr(self, 'monitor_timer'):
+            self.monitor_timer.stop()
+            del self.monitor_timer
 
     def check_process_status(self, engine):
         """检查进程状态"""
         if hasattr(engine, 'process') and engine.process.state() == QProcess.NotRunning:
-            if hasattr(self, 'monitor_timer'):
-                self.monitor_timer.stop()
-            # 重新启用开始按钮
-            self.btn_start.setEnabled(True)
-            # 隐藏取消按钮，显示开始按钮
-            self.btn_cancel.setVisible(False)
-            self.btn_start.setVisible(True)
+            # 进程已完成，重置UI状态
+            self.reset_ui_state()
         else:
-            # 更新日志输出已在TranscodeEngine的回调中处理，这里不需要重复处理
+            # 进程仍在运行，继续监控
             pass
