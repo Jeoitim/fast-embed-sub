@@ -1,14 +1,9 @@
 # gui.py
 # We avoid importing any QWidget-derived class at the module level so that
-# the library can be safely imported before a QApplication exists.  When
-# the fluent widgets package (`qfluentwidgets` from PyPI name
-# `PySide6-Fluent-Widgets`) is available we lazily pull in its components
-# inside MainUI.__init__ (after the application has been created).  This
-# branch no longer supports falling back to native Qt widgets.
+# the library can be safely imported before a QApplication exists.
 
-# 关于页信息变量
 ABOUT_CONTENT = """
-<h2>Fast Embed Sub v0.1.2 beta</h2>
+<h2>Fast Embed Sub v0.2.0 beta</h2>
 <p><img src="{icon}" width="128" height="128"></p>
 <p><b>作者:</b> Jeoitim Yip</p>
 <p><b>GitHub:</b> <a href="https://github.com/Jeoitim/fast-embed-sub">https://github.com/Jeoitim/fast-embed-sub</a></p>
@@ -20,24 +15,20 @@ ABOUT_CONTENT = """
 <p><b>鸣谢:</b></p>
 <ul>
     <li>FFmpeg 项目</li> <a href="https://ffmpeg.org/">https://ffmpeg.org/</a></li>
-    <li>MeGUI 开发团队</li> <a href="https://github.com/MeGUI">https://github.com/MeGUI</a></li>
     <li>所有开源贡献者</li>
 </ul>
 """
 
 from PySide6.QtWidgets import (QVBoxLayout, QHBoxLayout, QGridLayout,
-                               QFileDialog, QSizePolicy, QToolBar, QMainWindow, QInputDialog)
-from PySide6.QtGui import QIcon, QDragEnterEvent, QDropEvent, QAction
-from PySide6.QtCore import Qt, QTimer, QProcess, QMimeData
+                               QFileDialog, QSizePolicy, QMainWindow, QInputDialog,
+                               QWidget, QFrame)
+from PySide6.QtGui import QIcon, QDragEnterEvent, QDropEvent
+from PySide6.QtCore import Qt
 import os
 import re
-import sys
 import ctypes
 
-# 修改：从 qfluentwidgets 导入 NavigationInterface 和相关组件
 from qfluentwidgets import LineEdit as FluentLineEdit, FluentIcon
-from PySide6.QtGui import QIcon
-
 
 class DragDropLineEdit(FluentLineEdit):
     def __init__(self, parent=None):
@@ -61,90 +52,74 @@ class DragDropLineEdit(FluentLineEdit):
         else:
             super().dropEvent(event)
 
-# 修改：将 FluentWindow 替换为 QMainWindow 并添加导航功能
+
 class MainUI(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # import fluent widgets from the PySide6‑Fluent‑Widgets package.
-        # actual import name is `qfluentwidgets`.  class names are plain
-        # (ComboBox, PushButton, etc.) rather than prefixed with "Fluent".
         from qfluentwidgets import (
             ComboBox, PushButton, TextEdit,
-            ProgressBar, LineEdit, BodyLabel, MessageBox,
+            LineEdit, BodyLabel, MessageBox,
             setTheme, Theme, SimpleCardWidget, NavigationInterface,
-            NavigationItemPosition
+            NavigationItemPosition, ScrollArea
         )
         setTheme(Theme.DARK)
         
-        # Apply initial dark theme style
-        self.set_dark_mode_style()
-
-        # keep references to the classes so they can be used below
+        # 保存组件引用
         self._ComboBox = ComboBox
         self._PushButton = PushButton
         self._TextEdit = TextEdit
-        self._ProgressBar = ProgressBar
         self._LineEdit = LineEdit
-        self._Label = BodyLabel  # 修改为 BodyLabel
+        self._Label = BodyLabel
         self._MessageBox = MessageBox
         self._SimpleCardWidget = SimpleCardWidget
+        self._ScrollArea = ScrollArea
 
         self.setWindowTitle("Fast Embed Sub")
-        self.resize(900, 600)  # 增加窗口宽度以容纳侧边栏
-        # 设置应用图标（同时在标题栏显示）
+        self.resize(950, 650)
+        
         icon_path = os.path.join("assets", "icon.png")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
-        else:
-            print(f"警告: 图标文件 {icon_path} 不存在")
 
-        # 创建导航界面
+        # ====== 核心初始化：引擎与信号 ======
+        from main import TranscodeEngine
+        self.engine = TranscodeEngine()
+        self.engine.task_status_changed.connect(self.update_task_ui)
+        self.task_widgets = {} # 存储队列UI卡片的字典
+
+        # ====== 导航与页面架构 ======
         self.navigation_interface = NavigationInterface(self, showMenuButton=True)
-        
-        # 创建堆叠窗口用于页面切换
         from PySide6.QtWidgets import QStackedWidget
         self.stacked_widget = QStackedWidget()
         
-        # 创建各个页面
         self.create_home_page()
         self.create_log_page()
+        self.create_queue_page() # 新增队列页面
         self.create_about_page()
         
         # 添加导航项
         self.navigation_interface.addItem(
-            routeKey='home',
-            icon=FluentIcon.HOME,
-            text='主页',
-            onClick=lambda: self.switch_to_page(0),
-            position=NavigationItemPosition.TOP
+            routeKey='home', icon=FluentIcon.HOME, text='主页',
+            onClick=lambda: self.switch_to_page(0), position=NavigationItemPosition.TOP
+        )
+        self.navigation_interface.addItem(
+            routeKey='log', icon=FluentIcon.DOCUMENT, text='日志',
+            onClick=lambda: self.switch_to_page(1), position=NavigationItemPosition.TOP
+        )
+        self.navigation_interface.addItem(
+            routeKey='queue', icon=FluentIcon.HISTORY, text='任务队列',
+            onClick=lambda: self.switch_to_page(2), position=NavigationItemPosition.TOP
+        )
+        self.navigation_interface.addItem(
+            routeKey='theme', icon=FluentIcon.BRUSH, text='切换主题',
+            onClick=self.toggle_theme, position=NavigationItemPosition.BOTTOM
+        )
+        self.navigation_interface.addItem(
+            routeKey='about', icon=FluentIcon.INFO, text='关于',
+            onClick=lambda: self.switch_to_page(3), position=NavigationItemPosition.BOTTOM
         )
         
-        self.navigation_interface.addItem(
-            routeKey='log',
-            icon=FluentIcon.FONT,
-            text='日志',
-            onClick=lambda: self.switch_to_page(1),
-            position=NavigationItemPosition.TOP
-        )
-        
-        self.navigation_interface.addItem(
-            routeKey='theme',
-            icon=FluentIcon.BRUSH,
-            text='切换主题',
-            onClick=self.toggle_theme,
-            position=NavigationItemPosition.BOTTOM
-        )
-
-        self.navigation_interface.addItem(
-            routeKey='about',
-            icon=FluentIcon.INFO,
-            text='关于',
-            onClick=lambda: self.switch_to_page(2),
-            position=NavigationItemPosition.BOTTOM
-        )
-        
-        # 设置中心部件
         central_widget = self._SimpleCardWidget()
         layout = QHBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -153,12 +128,11 @@ class MainUI(QMainWindow):
         layout.addWidget(self.stacked_widget)
         self.setCentralWidget(central_widget)
         
-        # 默认显示主页
+        self.set_dark_mode_style()
         self.switch_to_page(0)
 
     def showEvent(self, event):
         super().showEvent(event)
-        # 窗口显示后强制刷新一次样式，确保 DWM 标题栏颜色正确应用
         from qfluentwidgets import isDarkTheme
         if isDarkTheme():
             self.set_dark_mode_style()
@@ -179,15 +153,11 @@ class MainUI(QMainWindow):
             BodyLabel#appTitle { color: #ffffff; font-size: 20px; font-weight: bold; }
             BodyLabel#sectionTitle { color: #ffffff; font-size: 16px; font-weight: bold; }
             SimpleCardWidget { margin-top: 8px; margin-bottom: 8px; }
+            QFrame#taskCard { background-color: rgba(255,255,255,0.05); border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
         ''')
-        # Set title bar to dark (Windows 11/10 DWM)
         try:
-            hwnd = int(self.winId())
-            value = 1  # True for Dark
-            # DWMWA_USE_IMMERSIVE_DARK_MODE = 20
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(ctypes.c_int(value)), 4)
-        except Exception as e:
-            print(f"Failed to set title bar color: {e}")
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(int(self.winId()), 20, ctypes.byref(ctypes.c_int(1)), 4)
+        except: pass
 
     def set_light_mode_style(self):
         self.setStyleSheet('''
@@ -195,15 +165,13 @@ class MainUI(QMainWindow):
             BodyLabel#appTitle { color: #000000; font-size: 20px; font-weight: bold; }
             BodyLabel#sectionTitle { color: #000000; font-size: 16px; font-weight: bold; }
             SimpleCardWidget { margin-top: 8px; margin-bottom: 8px; }
+            QFrame#taskCard { background-color: rgba(0,0,0,0.03); border-radius: 6px; border: 1px solid rgba(0,0,0,0.08); }
         ''')
-        # Set title bar to light
         try:
-            hwnd = int(self.winId())
-            value = 0  # False for Light
-            # DWMWA_USE_IMMERSIVE_DARK_MODE = 20
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(ctypes.c_int(value)), 4)
-        except Exception as e:
-            print(f"Failed to set title bar color: {e}")
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(int(self.winId()), 20, ctypes.byref(ctypes.c_int(0)), 4)
+        except: pass
+
+    # ================= UI 页面创建 =================
 
     def create_home_page(self):
         """创建主页"""
@@ -212,7 +180,6 @@ class MainUI(QMainWindow):
         self.main_layout.setContentsMargins(16, 16, 16, 16)
         self.main_layout.setSpacing(20)
 
-        # 页眉：logo + 应用标题
         header = QHBoxLayout()
         icon_path = os.path.join("assets", "icon.png")
         if os.path.exists(icon_path):
@@ -225,89 +192,67 @@ class MainUI(QMainWindow):
         header.addStretch()
         self.main_layout.addLayout(header)
 
-        # 输入文件卡片
+        # 输入卡片
         input_card = self._SimpleCardWidget()
-
-        # 手动添加标题标签
         input_title = self._Label("输入文件")
         input_title.setObjectName("sectionTitle")
         input_layout = QVBoxLayout(input_card)
         input_layout.setContentsMargins(10, 10, 10, 10)
-        input_layout.setSpacing(10)
         input_layout.addWidget(input_title)
 
         grid = QGridLayout()
         grid.setHorizontalSpacing(12)
         grid.setVerticalSpacing(12)
-
-        # 1. 视频源
         grid.addWidget(self._Label("视频源:"), 0, 0)
         self.video_input = DragDropLineEdit()
         self.video_input.setPlaceholderText("请选择或拖入视频文件...")
         self.btn_browse_video = self._PushButton("浏览")
-        # 修改：使用 FluentIcon.FOLDER.value 获取图标
         self.btn_browse_video.setIcon(QIcon(FluentIcon.FOLDER.value))
-        self.btn_browse_video.setProperty('type', 'secondary')
         grid.addWidget(self.video_input, 0, 1)
         grid.addWidget(self.btn_browse_video, 0, 2)
 
-        # 2. 字幕源
         grid.addWidget(self._Label("字幕源:"), 1, 0)
         self.sub_input = DragDropLineEdit()
         self.sub_input.setPlaceholderText("自动检测同名文件，也可手动选择...")
         self.btn_browse_sub = self._PushButton("浏览")
-        # 修改：使用 FluentIcon.FOLDER.value 获取图标
         self.btn_browse_sub.setIcon(QIcon(FluentIcon.FOLDER.value))
-        self.btn_browse_sub.setProperty('type', 'secondary')
         grid.addWidget(self.sub_input, 1, 1)
         grid.addWidget(self.btn_browse_sub, 1, 2)
-
         input_layout.addLayout(grid)
         self.main_layout.addWidget(input_card)
 
-        # 输出设置卡片
+        # 输出卡片
         output_group = self._SimpleCardWidget()
-
-        # 手动添加标题标签
         output_title = self._Label("输出设置")
         output_title.setObjectName("sectionTitle")
         output_layout = QVBoxLayout(output_group)
         output_layout.setContentsMargins(10, 10, 10, 10)
-        output_layout.setSpacing(10)
         output_layout.addWidget(output_title)
 
-        # 输出目录选择
         output_dir_layout = QHBoxLayout()
         output_dir_layout.addWidget(self._Label("输出目录:"))
         self.output_input = DragDropLineEdit()
         self.output_input.setPlaceholderText("默认输出到视频同目录...")
         self.btn_browse_output = self._PushButton("浏览")
-        # 修改：使用 FluentIcon.FOLDER.value 获取图标
         self.btn_browse_output.setIcon(QIcon(FluentIcon.FOLDER.value))
-        self.btn_browse_output.setProperty('type', 'secondary')
         output_dir_layout.addWidget(self.output_input)
         output_dir_layout.addWidget(self.btn_browse_output)
         output_layout.addLayout(output_dir_layout)
 
-        # 文件名和格式设置
         filename_layout = QHBoxLayout()
         filename_layout.addWidget(self._Label("文件名:"))
         self.filename_input = self._LineEdit()
         self.filename_input.setPlaceholderText("自动使用输入文件名")
         filename_layout.addWidget(self.filename_input)
-
         filename_layout.addWidget(self._Label("格式:"))
         self.format_combo = self._ComboBox()
         self.format_combo.addItems(['mkv', 'mp4', 'mov'])
         filename_layout.addWidget(self.format_combo)
         output_layout.addLayout(filename_layout)
-
         self.main_layout.addWidget(output_group)
 
-        # 预设选择区
+        # 预设卡片
         preset_card = self._SimpleCardWidget()
-
-        # 手动添加标题标签
         preset_title = self._Label("预设")
         preset_title.setObjectName("sectionTitle")
         preset_layout = QHBoxLayout(preset_card)
@@ -315,133 +260,108 @@ class MainUI(QMainWindow):
         preset_layout.addWidget(preset_title)
         preset_layout.addWidget(self._Label("压制预设:"))
         self.preset_combo = self._ComboBox()
-        # 替代方案：设置固定宽度
         self.preset_combo.setFixedWidth(150)
         preset_layout.addWidget(self.preset_combo)
         preset_layout.addStretch()
         self.main_layout.addWidget(preset_card)
 
-        # 预设备注显示
         self.preset_desc = self._Label("预设说明：请选择预设")
         self.preset_desc.setStyleSheet("color: gray; font-style: italic;")
         self.main_layout.addWidget(self.preset_desc)
 
-        # 开始和取消按钮
-        button_layout = QHBoxLayout()
-        self.btn_start = self._PushButton("开始压制")
+        # 按钮：加入队列
+        self.btn_start = self._PushButton("加入队列")
         self.btn_start.setMinimumHeight(40)
         self.btn_start.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        # 修改：使用 FluentIcon.PLAY.value 获取图标
-        self.btn_start.setIcon(QIcon(FluentIcon.PLAY.value))
+        self.btn_start.setIcon(QIcon(FluentIcon.ADD.value))
         self.btn_start.setProperty('type', 'primary')
-        
-        self.btn_cancel = self._PushButton("取消")
-        self.btn_cancel.setMinimumHeight(40)
-        self.btn_cancel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        # 修改：使用 FluentIcon.CANCEL.value 获取图标
-        self.btn_cancel.setIcon(QIcon(FluentIcon.CANCEL.value))
-        self.btn_cancel.setProperty('type', 'danger')
-        self.btn_cancel.setVisible(False)
+        self.main_layout.addWidget(self.btn_start)
 
-        button_layout.addWidget(self.btn_start)
-        button_layout.addWidget(self.btn_cancel)
-        self.main_layout.addLayout(button_layout)
-
-        # 绑定按钮点击事件
+        # 绑定事件
         self.btn_browse_video.clicked.connect(self.browse_video)
         self.btn_browse_sub.clicked.connect(self.browse_subtitle)
         self.btn_browse_output.clicked.connect(self.browse_output)
-        self.btn_start.clicked.connect(self.start_transcoding)
-        self.btn_cancel.clicked.connect(self.cancel_transcoding)
-
-        # 绑定预设选择变化事件
+        self.btn_start.clicked.connect(self.add_to_queue_action)
         self.preset_combo.currentIndexChanged.connect(self.update_preset_desc)
-
-        # 加载预设并设置默认选项
-        self.load_presets()
-
-        # 绑定视频输入框文本变化事件，用于自动检测字幕
         self.video_input.textChanged.connect(self.auto_detect_subtitle)
-        
-        # 添加到堆叠窗口
+
+        self.load_presets()
         self.stacked_widget.addWidget(self.home_widget)
 
     def create_log_page(self):
-        """创建日志页面"""
+        """创建日志页面（去掉了进度条，仅保留纯文本输出）"""
         self.log_widget = self._SimpleCardWidget()
         layout = QVBoxLayout(self.log_widget)
         layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(20)
         
-        # 页面标题
-        title = self._Label("日志")
+        title = self._Label("日志输出")
         title.setObjectName('appTitle')
         layout.addWidget(title)
         
-        # 日志显示区域
         self.log_output = self._TextEdit()
         self.log_output.setReadOnly(True)
         self.log_output.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; font-family: Consolas;")
-        self.log_output.setHtml("")
         layout.addWidget(self.log_output)
         
-        # 进度条
-        self.progress_bar = self._ProgressBar()
-        self.progress_bar.setRange(0, 100)
-        self.progress_bar.setValue(0)
-        self.progress_bar.setVisible(False)
-        layout.addWidget(self.progress_bar)
-        
-        # 按钮区域
-        button_layout = QHBoxLayout()
         self.btn_export_log = self._PushButton("导出日志")
         self.btn_export_log.clicked.connect(self.export_log)
-        button_layout.addWidget(self.btn_export_log)
-        button_layout.addStretch()
-        layout.addLayout(button_layout)
+        layout.addWidget(self.btn_export_log, alignment=Qt.AlignLeft)
         
-        # 添加到堆叠窗口
         self.stacked_widget.addWidget(self.log_widget)
 
+    def create_queue_page(self):
+        """创建任务队列页面"""
+        self.queue_widget = self._SimpleCardWidget()
+        layout = QVBoxLayout(self.queue_widget)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+        
+        title = self._Label("任务队列")
+        title.setObjectName('appTitle')
+        layout.addWidget(title)
+
+        # 滚动区域存放队列任务卡片
+        self.queue_scroll = self._ScrollArea()
+        self.queue_scroll.setWidgetResizable(True)
+        self.queue_scroll.setStyleSheet("QScrollArea { background-color: transparent; border: none; }")
+        
+        self.queue_scroll_content = QWidget()
+        self.queue_scroll_content.setStyleSheet("background: transparent;")
+        self.queue_layout = QVBoxLayout(self.queue_scroll_content)
+        self.queue_layout.setAlignment(Qt.AlignTop)
+        self.queue_layout.setSpacing(8)
+        
+        self.queue_scroll.setWidget(self.queue_scroll_content)
+        layout.addWidget(self.queue_scroll)
+        
+        self.stacked_widget.addWidget(self.queue_widget)
+
     def create_about_page(self):
-        """创建关于页面"""
         self.about_widget = self._SimpleCardWidget()
         layout = QVBoxLayout(self.about_widget)
         layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(20)
-        
-        # 页面标题
         title = self._Label("关于")
         title.setObjectName('appTitle')
         layout.addWidget(title)
         
-        # 关于内容
         about_content = self._TextEdit()
         about_content.setReadOnly(True)
-        
-        # 获取图标绝对路径以确保在 TextEdit 中正确显示
         icon_abs_path = os.path.abspath(os.path.join("assets", "icon.png")).replace("\\", "/")
-        # 格式化 HTML 内容
-        html_content = ABOUT_CONTENT.format(icon=icon_abs_path)
-        
-        about_content.setHtml(html_content)
+        about_content.setHtml(ABOUT_CONTENT.format(icon=icon_abs_path))
         layout.addWidget(about_content)
         
-        # 添加到堆叠窗口
         self.stacked_widget.addWidget(self.about_widget)
 
+    # ================= 辅助函数与事件 =================
+
     def switch_to_page(self, index):
-        """切换到指定页面"""
         self.stacked_widget.setCurrentIndex(index)
 
     def load_presets(self):
-        from main import TranscodeEngine
-        engine = TranscodeEngine()
-        presets = engine.get_presets()
+        presets = self.engine.get_presets()
         for name, (desc, _) in presets.items():
             self.preset_combo.addItem(name)
         
-        # 优先选中名为 "默认" 的预设
         index = self.preset_combo.findText("默认")
         if index != -1:
             self.preset_combo.setCurrentIndex(index)
@@ -449,30 +369,20 @@ class MainUI(QMainWindow):
             self.preset_combo.setCurrentIndex(0)
 
     def update_preset_desc(self):
-        from main import TranscodeEngine
-        engine = TranscodeEngine()
-        presets = engine.get_presets()
+        presets = self.engine.get_presets()
         current_name = self.preset_combo.currentText()
         if current_name in presets:
             desc, template = presets[current_name]
             self.preset_desc.setText(f"预设说明：{desc}")
-
-            # 检查是否包含 {format:xxx} 语法
             if re.search(r'\{format:([^}]+)\}', template):
-                # 如果包含，则禁用格式选择框
                 self.format_combo.setEnabled(False)
             else:
-                # 否则启用格式选择框
                 self.format_combo.setEnabled(True)
 
     def auto_detect_subtitle(self, video_path):
-        """自动检测同名字幕文件"""
-        if not video_path or not os.path.isfile(video_path):
-            return
-
+        if not video_path or not os.path.isfile(video_path): return
         video_dir = os.path.dirname(video_path)
         video_name = os.path.splitext(os.path.basename(video_path))[0]
-        # 检查常见字幕格式
         for ext in ['.srt', '.ass', '.ssa']:
             sub_path = os.path.join(video_dir, video_name + ext)
             if os.path.exists(sub_path):
@@ -480,155 +390,157 @@ class MainUI(QMainWindow):
                 break
 
     def browse_video(self):
-        # 实现视频文件选择逻辑
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "选择视频文件", "", "视频文件 (*.mp4 *.mov *.mkv)"
-        )
-        if file_path:
-            self.video_input.setText(file_path)
-            # 注意：现在不需要在这里调用auto_detect_subtitle，因为textChanged会自动触发
+        file_path, _ = QFileDialog.getOpenFileName(self, "选择视频", "", "视频 (*.mp4 *.mov *.mkv)")
+        if file_path: self.video_input.setText(file_path)
 
     def browse_subtitle(self):
-        # 实现字幕文件选择逻辑
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "选择字幕文件", "", "字幕文件 (*.srt *.ass *.ssa)"
-        )
-        if file_path:
-            self.sub_input.setText(file_path)
+        file_path, _ = QFileDialog.getOpenFileName(self, "选择字幕", "", "字幕 (*.srt *.ass *.ssa)")
+        if file_path: self.sub_input.setText(file_path)
 
     def browse_output(self):
-        # 实现输出目录选择逻辑
-        dir_path = QFileDialog.getExistingDirectory(
-            self, "选择输出目录", ""
-        )
+        dir_path = QFileDialog.getExistingDirectory(self, "选择输出目录", "")
         if dir_path:
             self.output_input.setText(dir_path)
-            # 自动填充文件名
             if self.video_input.text():
-                input_filename = os.path.splitext(os.path.basename(self.video_input.text()))[0]
-                self.filename_input.setText(input_filename)
+                self.filename_input.setText(os.path.splitext(os.path.basename(self.video_input.text()))[0])
 
     def export_log(self):
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "导出日志", "", "文本文件 (*.txt)"
-        )
+        file_path, _ = QFileDialog.getSaveFileName(self, "导出日志", "", "文本文件 (*.txt)")
         if file_path:
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(self.log_output.toPlainText())
 
-    def start_transcoding(self):
-        # 实现压制任务启动逻辑
-        from main import TranscodeEngine
-        engine = TranscodeEngine()
+    def truncate_string(self, text, max_len=25):
+        """长文本截断，保留首尾"""
+        if len(text) <= max_len: return text
+        half = (max_len - 3) // 2
+        return f"{text[:half]}...{text[-half:]}"
 
+    # ================= 核心业务：队列控制 =================
+
+    def add_to_queue_action(self):
+        """处理加入队列动作"""
         video = self.video_input.text()
         sub = self.sub_input.text()
         output_dir = self.output_input.text()
         filename = self.filename_input.text() or None
-        format = self.format_combo.currentText()
+        format_val = self.format_combo.currentText()
 
-        # 修改：只检查视频路径，不再强制要求字幕路径
         if not video:
             self._MessageBox.warning(self, "警告", "请确保已选择视频文件")
             return
 
-        # 如果输出目录为空，则使用视频所在目录
         if not output_dir:
             output_dir = os.path.dirname(video)
             self.output_input.setText(output_dir)
 
-        # 自动填充文件名（如果未指定）
         if not filename:
-            input_filename = os.path.splitext(os.path.basename(video))[0]
-            filename = input_filename
+            filename = os.path.splitext(os.path.basename(video))[0]
             self.filename_input.setText(filename)
 
-        # 构造完整的输出路径
-        output_path = os.path.join(output_dir, f"{filename}.{format}")
-        
-        # 调试日志：打印输出路径
-        print(f"输出路径: {output_path}")
-
-        # 检查输出文件是否已存在
+        output_path = os.path.join(output_dir, f"{filename}.{format_val}")
         if os.path.exists(output_path):
-            from PySide6.QtWidgets import QMessageBox, QLineEdit
-            # 强制用户更改文件名
             new_filename, ok = QInputDialog.getText(
-                self,
-                "文件已存在",
-                f"输出文件已存在：\n{output_path}\n\n请输入新的文件名（不含扩展名）:",
-                QLineEdit.Normal,
-                filename
+                self, "文件已存在", f"输出文件已存在：\n{output_path}\n\n请输入新的文件名:", 
+                self._LineEdit.Normal, filename
             )
-            if not ok or not new_filename:
-                return
-            # 更新文件名并重新构造输出路径
+            if not ok or not new_filename: return
             filename = new_filename
-            output_path = os.path.join(output_dir, f"{filename}.{format}")
-            self.filename_input.setText(filename)
 
-        # 获取当前选中的预设
         current_preset = self.preset_combo.currentText()
-        presets = engine.get_presets()
+        presets = self.engine.get_presets()
         if current_preset in presets:
             template = presets[current_preset][1]
             try:
-                # 重置进度条和日志
-                self.progress_bar.setValue(0)
-                self.progress_bar.setVisible(True)
-                self.log_output.clear()  # 清空之前的日志
+                # 若无字幕，去掉字幕参数
+                if not sub:
+                    template = re.sub(r'-vf\s+"subtitles=\'\{input_s\}\'"', '', template)
+                    template = re.sub(r'\s+', ' ', template).strip()
                 
-                # 显示取消按钮，隐藏开始按钮
-                self.btn_start.setVisible(False)
-                self.btn_cancel.setVisible(True)
-
-                # 修改：根据是否有字幕选择不同的处理方式
-                if sub:
-                    # 有字幕的情况，使用原有的处理逻辑
-                    engine.run_task(template, video, sub, output_dir, filename, format)
-                else:
-                    # 没有字幕的情况，从命令模板中移除字幕相关的参数
-                    # 删除 -vf "subtitles='{input_s}'" 这一部分
-                    modified_template = re.sub(r'-vf\s+"subtitles=\'\{input_s\}\'"', '', template)
-                    # 清理多余的空格
-                    modified_template = re.sub(r'\s+', ' ', modified_template).strip()
-                    engine.run_task(modified_template, video, "", output_dir, filename, format)
-
-                # 启动定时器监控进程状态
-                self.monitor_timer = QTimer()
-                self.monitor_timer.timeout.connect(lambda: self.check_process_status(engine))
-                self.monitor_timer.start(1000)  # 每秒检查一次
+                # 推送任务到引擎队列
+                task = self.engine.add_to_queue(template, video, sub, output_dir, filename, format_val, current_preset)
+                
+                # 创建对应的 UI 卡片
+                self.create_task_widget(task)
+                
+                # 跳转到队列页面
+                self.navigation_interface.setCurrentItem('queue')
+                self.switch_to_page(2)
 
             except ValueError as e:
                 self._MessageBox.critical(self, "错误", f"错误: {str(e)}")
-                self.progress_bar.setVisible(False)
-                # 隐藏取消按钮，显示开始按钮
-                self.btn_cancel.setVisible(False)
-                self.btn_start.setVisible(True)
 
-    def cancel_transcoding(self):
-        if hasattr(self, 'engine') and hasattr(self.engine, 'process'):
-            self.engine.process.kill()
-        # 重置界面状态
-        self.reset_ui_state()
+    def create_task_widget(self, task):
+        """生成队列中的任务卡片"""
+        card = QFrame()
+        card.setObjectName("taskCard")
+        layout = QHBoxLayout(card)
+        layout.setContentsMargins(15, 12, 15, 12)
+        
+        info_label = self._Label()
+        info_label.setWordWrap(True)
+        
+        status_label = self._Label("等待中")
+        status_label.setFixedWidth(65)
+        status_label.setAlignment(Qt.AlignCenter)
+        
+        cancel_btn = self._PushButton("取消")
+        cancel_btn.setProperty('type', 'danger')
+        cancel_btn.setFixedWidth(60)
+        cancel_btn.clicked.connect(lambda: self.engine.cancel_task(task.task_id))
+        
+        layout.addWidget(info_label, 1)
+        layout.addWidget(status_label)
+        layout.addWidget(cancel_btn)
+        
+        self.queue_layout.addWidget(card)
+        
+        self.task_widgets[task.task_id] = {
+            "card": card,
+            "info": info_label,
+            "status": status_label,
+            "cancel_btn": cancel_btn
+        }
+        self.update_task_ui(task.task_id)
 
-    def reset_ui_state(self):
-        """重置UI状态"""
-        self.progress_bar.setVisible(False)
-        self.progress_bar.setValue(0)
-        # 隐藏取消按钮，显示开始按钮
-        self.btn_cancel.setVisible(False)
-        self.btn_start.setVisible(True)
-        # 停止监控定时器
-        if hasattr(self, 'monitor_timer'):
-            self.monitor_timer.stop()
-            del self.monitor_timer
-
-    def check_process_status(self, engine):
-        """检查进程状态"""
-        if hasattr(engine, 'process') and engine.process.state() == QProcess.NotRunning:
-            # 进程已完成，重置UI状态
-            self.reset_ui_state()
-        else:
-            # 进程仍在运行，继续监控
-            pass
+    def update_task_ui(self, task_id):
+        """响应状态变更信号，刷新卡片 UI"""
+        task = next((t for t in self.engine.queue if t.task_id == task_id), None)
+        if not task or task_id not in self.task_widgets: return
+            
+        widgets = self.task_widgets[task_id]
+        
+        # 截断路径名称用于显示
+        v_name = self.truncate_string(os.path.basename(task.video), 25)
+        o_name = self.truncate_string(os.path.basename(task.output_path), 25)
+        
+        info_text = f"<b>{v_name}</b> <span style='color:gray'>|</span> {task.preset_name} <span style='color:gray'>|</span> {o_name}"
+        widgets["info"].setText(info_text)
+        
+        status_label = widgets["status"]
+        cancel_btn = widgets["cancel_btn"]
+        
+        if task.status == "等待中":
+            status_label.setText("等待中")
+            status_label.setStyleSheet("color: #808080;")
+            cancel_btn.setEnabled(True)
+            
+        elif task.status == "压制中":
+            status_label.setText(f"{task.progress}%")
+            status_label.setStyleSheet("color: #0078D4; font-weight: bold;")
+            cancel_btn.setEnabled(True)
+            
+        elif task.status == "已完成":
+            status_label.setText("已完成")
+            status_label.setStyleSheet("color: #28a745; font-weight: bold;")
+            cancel_btn.setEnabled(False)
+            
+        elif task.status == "已取消":
+            status_label.setText("已取消")
+            status_label.setStyleSheet("color: #6c757d;")
+            cancel_btn.setEnabled(False)
+            
+        elif task.status == "失败":
+            status_label.setText("失败")
+            status_label.setStyleSheet("color: #dc3545; font-weight: bold;")
+            cancel_btn.setEnabled(False)
