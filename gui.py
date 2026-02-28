@@ -374,7 +374,7 @@ class MainUI(QMainWindow):
         
         # 页面标题
         title = self._Label("日志")
-        title.setStyleSheet("font-size: 20px; font-weight: bold;")
+        title.setObjectName('appTitle')
         layout.addWidget(title)
         
         # 日志显示区域
@@ -411,7 +411,7 @@ class MainUI(QMainWindow):
         
         # 页面标题
         title = self._Label("关于")
-        title.setStyleSheet("font-size: 20px; font-weight: bold;")
+        title.setObjectName('appTitle')
         layout.addWidget(title)
         
         # 关于内容

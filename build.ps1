@@ -23,12 +23,12 @@ if (Test-Path $GitignoreFile) {
 # --include-data-dir: 包含你的资源文件夹
 # --output-dir: 指定输出到 outputs
 # --windows-icon-from-ico: 设置程序图标
+# --experimental=debug-report-traceback : 生成调试报告（如果打包失败可以查看）（按需使用命令）
 
 nuitka "--standalone" `
        "--msvc=latest" `
        "--show-memory" `
        "--show-progress" `
-       #（按需使用命令）"--experimental=debug-report-traceback",
        "--jobs=$env:NUMBER_OF_PROCESSORS" `
        "--plugin-enable=pyside6" `
        "--windows-disable-console" `
@@ -48,7 +48,7 @@ Write-Host "打包完成！生成的程序位于 $OutputDir/main.dist/" -Foregro
 # 4. 强制搬运资源文件夹 (保底方案)
 $DistPath = "$OutputDir/main.dist"
 # 如果你指定了 --output-filename=FastEmbedSub，路径可能是 "$OutputDir/FastEmbedSub.dist"
-if (-not (Test-Path $DistPath)) {
+if (-not (Test-Path $DistPath)) {yikaishi
     $DistPath = Get-ChildItem -Path "$OutputDir/*.dist" | Select-Object -ExpandProperty FullName -First 1
 }
 
