@@ -28,6 +28,7 @@ nuitka "--standalone" `
        "--msvc=latest" `
        "--show-memory" `
        "--show-progress" `
+       "--experimental=debug-report-traceback",
        "--jobs=$env:NUMBER_OF_PROCESSORS" `
        "--plugin-enable=pyside6" `
        "--windows-disable-console" `
