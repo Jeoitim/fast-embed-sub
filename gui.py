@@ -377,7 +377,12 @@ class MainUI(QMainWindow):
         presets = engine.get_presets()
         for name, (desc, _) in presets.items():
             self.preset_combo.addItem(name)
-        if presets:
+        
+        # 优先选中名为 "默认" 的预设
+        index = self.preset_combo.findText("默认")
+        if index != -1:
+            self.preset_combo.setCurrentIndex(index)
+        elif presets:
             self.preset_combo.setCurrentIndex(0)
 
     def update_preset_desc(self):
