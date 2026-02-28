@@ -35,7 +35,7 @@ nuitka "--standalone" `
        "--include-data-dir=components=components" `
        "--output-dir=$OutputDir" `
        "--output-filename=FastEmbedSub" `
-       "--windows-icon-from-ico=assets/icon.jpg" `
+       "--windows-icon-from-ico=assets/icon.png" `
        "--nofollow-import-to=scipy" `
        "--nofollow-import-to=numpy" `
        "--nofollow-import-to=pyqt5" `

@@ -31,6 +31,7 @@ from PySide6.QtCore import Qt, QTimer, QProcess, QMimeData
 import os
 import re
 import sys
+import ctypes
 
 # 修改：从 qfluentwidgets 导入 NavigationInterface 和相关组件
 from qfluentwidgets import LineEdit as FluentLineEdit, FluentIcon
@@ -74,11 +75,9 @@ class MainUI(QMainWindow):
             NavigationItemPosition
         )
         setTheme(Theme.DARK)
-        # additional stylesheet tweaks
-        self.setStyleSheet('''
-            BodyLabel#appTitle { color: #0078D4; font-size: 20px; }
-            SimpleCardWidget { margin-top: 8px; margin-bottom: 8px; }
-        ''')
+        
+        # Apply initial dark theme style
+        self.set_dark_mode_style()
 
         # keep references to the classes so they can be used below
         self._ComboBox = ComboBox
@@ -93,7 +92,7 @@ class MainUI(QMainWindow):
         self.setWindowTitle("Fast Embed Sub")
         self.resize(900, 600)  # 增加窗口宽度以容纳侧边栏
         # 设置应用图标（同时在标题栏显示）
-        icon_path = os.path.join("assets", "icon.jpg")
+        icon_path = os.path.join("assets", "icon.png")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
         else:
@@ -129,6 +128,14 @@ class MainUI(QMainWindow):
         )
         
         self.navigation_interface.addItem(
+            routeKey='theme',
+            icon=FluentIcon.BRUSH,
+            text='切换主题',
+            onClick=self.toggle_theme,
+            position=NavigationItemPosition.BOTTOM
+        )
+
+        self.navigation_interface.addItem(
             routeKey='about',
             icon=FluentIcon.INFO,
             text='关于',
@@ -148,6 +155,55 @@ class MainUI(QMainWindow):
         # 默认显示主页
         self.switch_to_page(0)
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        # 窗口显示后强制刷新一次样式，确保 DWM 标题栏颜色正确应用
+        from qfluentwidgets import isDarkTheme
+        if isDarkTheme():
+            self.set_dark_mode_style()
+        else:
+            self.set_light_mode_style()
+
+    def toggle_theme(self):
+        from qfluentwidgets import toggleTheme, isDarkTheme
+        toggleTheme()
+        if isDarkTheme():
+            self.set_dark_mode_style()
+        else:
+            self.set_light_mode_style()
+
+    def set_dark_mode_style(self):
+        self.setStyleSheet('''
+            QMainWindow { background-color: #272727; }
+            BodyLabel#appTitle { color: #ffffff; font-size: 20px; font-weight: bold; }
+            BodyLabel#sectionTitle { color: #ffffff; font-size: 16px; font-weight: bold; }
+            SimpleCardWidget { margin-top: 8px; margin-bottom: 8px; }
+        ''')
+        # Set title bar to dark (Windows 11/10 DWM)
+        try:
+            hwnd = int(self.winId())
+            value = 1  # True for Dark
+            # DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(ctypes.c_int(value)), 4)
+        except Exception as e:
+            print(f"Failed to set title bar color: {e}")
+
+    def set_light_mode_style(self):
+        self.setStyleSheet('''
+            QMainWindow { background-color: #f9f9f9; }
+            BodyLabel#appTitle { color: #000000; font-size: 20px; font-weight: bold; }
+            BodyLabel#sectionTitle { color: #000000; font-size: 16px; font-weight: bold; }
+            SimpleCardWidget { margin-top: 8px; margin-bottom: 8px; }
+        ''')
+        # Set title bar to light
+        try:
+            hwnd = int(self.winId())
+            value = 0  # False for Light
+            # DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(ctypes.c_int(value)), 4)
+        except Exception as e:
+            print(f"Failed to set title bar color: {e}")
+
     def create_home_page(self):
         """创建主页"""
         self.home_widget = self._SimpleCardWidget()
@@ -157,13 +213,13 @@ class MainUI(QMainWindow):
 
         # 页眉：logo + 应用标题
         header = QHBoxLayout()
-        icon_path = os.path.join("assets", "icon.jpg")
+        icon_path = os.path.join("assets", "icon.png")
         if os.path.exists(icon_path):
             logo = self._Label()
             logo.setPixmap(QIcon(icon_path).pixmap(32, 32))
             header.addWidget(logo)
         title_label = self._Label("Fast Embed Sub")
-        title_label.setStyleSheet("font-size: 20px; font-weight: bold;")
+        title_label.setObjectName('appTitle')
         header.addWidget(title_label)
         header.addStretch()
         self.main_layout.addLayout(header)
@@ -173,7 +229,7 @@ class MainUI(QMainWindow):
 
         # 手动添加标题标签
         input_title = self._Label("输入文件")
-        input_title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        input_title.setObjectName("sectionTitle")
         input_layout = QVBoxLayout(input_card)
         input_layout.setContentsMargins(10, 10, 10, 10)
         input_layout.setSpacing(10)
@@ -213,7 +269,7 @@ class MainUI(QMainWindow):
 
         # 手动添加标题标签
         output_title = self._Label("输出设置")
-        output_title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        output_title.setObjectName("sectionTitle")
         output_layout = QVBoxLayout(output_group)
         output_layout.setContentsMargins(10, 10, 10, 10)
         output_layout.setSpacing(10)
@@ -252,7 +308,7 @@ class MainUI(QMainWindow):
 
         # 手动添加标题标签
         preset_title = self._Label("预设")
-        preset_title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        preset_title.setObjectName("sectionTitle")
         preset_layout = QHBoxLayout(preset_card)
         preset_layout.setContentsMargins(10, 10, 10, 10)
         preset_layout.addWidget(preset_title)
