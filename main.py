@@ -1,7 +1,6 @@
 import os
 import re
 import sys
-import uuid # 用于生成乱码后缀防止冲突
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QTimer, QProcess
 

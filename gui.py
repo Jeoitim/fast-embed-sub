@@ -13,12 +13,13 @@ ABOUT_CONTENT = """
 <p><b>GitHub:</b> <a href="https://github.com/Jeoitim/fast-embed-sub">https://github.com/Jeoitim/fast-embed-sub</a></p>
 <p><b>依赖库:</b></p>
 <ul>
-    <li>PySide6</li>
-    <li>PySide6-Fluent-Widgets</li>
+    <li>PySide6</li> <a href="https://pypi.org/project/PySide6/">https://pypi.org/project/PySide6/</a></li>
+    <li>PySide6-Fluent-Widgets</li> <a href="https://pypi.org/project/PySide6-Fluent-Widgets/">https://pypi.org/project/PySide6-Fluent-Widgets/</a></li>
 </ul>
 <p><b>鸣谢:</b></p>
 <ul>
-    <li>FFmpeg项目</li>
+    <li>FFmpeg 项目</li> <a href="https://ffmpeg.org/">https://ffmpeg.org/</a></li>
+    <li>MeGUI 开发团队</li> <a href="https://github.com/MeGUI">https://github.com/MeGUI</a></li>
     <li>所有开源贡献者</li>
 </ul>
 """

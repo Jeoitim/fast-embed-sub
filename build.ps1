@@ -24,16 +24,22 @@ if (Test-Path $GitignoreFile) {
 # --output-dir: 指定输出到 outputs
 # --windows-icon-from-ico: 设置程序图标
 
-nuitka --standalone `
-       --show-memory `
-       --show-progress `
-       --plugin-enable=pyside6 `
-       --windows-disable-console `
-       --include-data-dir=assets=assets `
-       --include-data-dir=components=components `
-       --output-dir=$OutputDir `
-       --windows-icon-from-ico=assets/icon.jpg `
-       --follow-imports `
-       main.py
+nuitka "--standalone" `
+       "--msvc=latest" `
+       "--show-memory" `
+       "--show-progress" `
+       "--jobs=$env:NUMBER_OF_PROCESSORS" `
+       "--plugin-enable=pyside6" `
+       "--windows-disable-console" `
+       "--include-data-dir=assets=assets" `
+       "--include-data-dir=components=components" `
+       "--output-dir=$OutputDir" `
+       "--output-filename=FastEmbedSub" `
+       "--windows-icon-from-ico=assets/icon.jpg" `
+       "--nofollow-import-to=scipy" `
+       "--nofollow-import-to=numpy" `
+       "--nofollow-import-to=pyqt5" `
+       "--follow-imports" `
+       "main.py"
 
 Write-Host "打包完成！生成的程序位于 $OutputDir/main.dist/" -ForegroundColor Cyan
