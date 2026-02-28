@@ -20,6 +20,20 @@
 -   **格式灵活**：支持多种输出格式（mkv/mp4/mov等）
 -   **错误处理**：完善的错误提示和文件覆盖确认
 
+## 🖼️ 界面预览
+
+::: {align="center"}
+<img src="https://github.com/user-attachments/assets/426be95b-9289-471e-93bd-541db95658e4" alt="主界面" width="1197" height="816"/>
+
+<p>主界面 - 简洁直观的操作面板</p>
+:::
+
+::: {align="center"}
+<img src="https://github.com/user-attachments/assets/47de5e1f-b8ac-49ab-a723-ba40b746a643" alt="日志界面" width="1066" height="777"/>
+
+<p>日志界面 - 实时显示压制进度和详细信息</p>
+:::
+
 ## 🌟 模块化预设配置分享理念
 
 Fast Embed Sub 的核心创新在于其**模块化的预设配置分享机制**，彻底改变了传统视频压制工具的使用方式。
