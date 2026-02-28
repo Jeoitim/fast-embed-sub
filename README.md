@@ -29,7 +29,7 @@
 :::
 
 ::: {align="center"}
-<img src="https://github.com/user-attachments/assets/47de5e1f-b8ac-49ab-a723-ba40b746a643" alt="日志界面" width="1066" height="777"/>
+<img src="https://github.com/user-attachments/assets/f1fb9e6b-8661-406e-9f51-b48f46752a5d" alt="日志界面" width="1180" height="830"/>
 
 <p>日志界面 - 实时显示压制进度和详细信息</p>
 :::
