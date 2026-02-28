@@ -9,6 +9,7 @@
 # 关于页信息变量
 ABOUT_CONTENT = """
 <h2>Fast Embed Sub v0.1.2 beta</h2>
+<p><img src="{icon}" width="64" height="64"></p>
 <p><b>作者:</b> Jeoitim Yip</p>
 <p><b>GitHub:</b> <a href="https://github.com/Jeoitim/fast-embed-sub">https://github.com/Jeoitim/fast-embed-sub</a></p>
 <p><b>依赖库:</b></p>
@@ -417,7 +418,13 @@ class MainUI(QMainWindow):
         # 关于内容
         about_content = self._TextEdit()
         about_content.setReadOnly(True)
-        about_content.setHtml(ABOUT_CONTENT)
+        
+        # 获取图标绝对路径以确保在 TextEdit 中正确显示
+        icon_abs_path = os.path.abspath(os.path.join("assets", "icon.png")).replace("\\", "/")
+        # 格式化 HTML 内容
+        html_content = ABOUT_CONTENT.format(icon=icon_abs_path)
+        
+        about_content.setHtml(html_content)
         layout.addWidget(about_content)
         
         # 添加到堆叠窗口
