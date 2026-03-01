@@ -58,7 +58,7 @@ class MainUI(QMainWindow):
         super().__init__()
 
         from qfluentwidgets import (
-            ComboBox, PushButton, TextEdit,
+            ComboBox, PushButton, TextEdit, ProgressBar,
             LineEdit, BodyLabel, MessageBox,
             setTheme, Theme, SimpleCardWidget, NavigationInterface,
             NavigationItemPosition, ScrollArea
@@ -69,6 +69,7 @@ class MainUI(QMainWindow):
         self._ComboBox = ComboBox
         self._PushButton = PushButton
         self._TextEdit = TextEdit
+        self._ProgressBar = ProgressBar
         self._LineEdit = LineEdit
         self._Label = BodyLabel
         self._MessageBox = MessageBox
@@ -95,21 +96,20 @@ class MainUI(QMainWindow):
         
         self.create_home_page()
         self.create_log_page()
-        self.create_queue_page() # 新增队列页面
+        self.create_queue_page()
         self.create_about_page()
         
-        # 添加导航项
         self.navigation_interface.addItem(
             routeKey='home', icon=FluentIcon.HOME, text='主页',
             onClick=lambda: self.switch_to_page(0), position=NavigationItemPosition.TOP
         )
         self.navigation_interface.addItem(
-            routeKey='log', icon=FluentIcon.DOCUMENT, text='日志',
-            onClick=lambda: self.switch_to_page(1), position=NavigationItemPosition.TOP
-        )
-        self.navigation_interface.addItem(
             routeKey='queue', icon=FluentIcon.HISTORY, text='任务队列',
             onClick=lambda: self.switch_to_page(2), position=NavigationItemPosition.TOP
+        )
+        self.navigation_interface.addItem(
+            routeKey='log', icon=FluentIcon.DOCUMENT, text='日志',
+            onClick=lambda: self.switch_to_page(1), position=NavigationItemPosition.TOP
         )
         self.navigation_interface.addItem(
             routeKey='theme', icon=FluentIcon.BRUSH, text='切换主题',
@@ -120,12 +120,29 @@ class MainUI(QMainWindow):
             onClick=lambda: self.switch_to_page(3), position=NavigationItemPosition.BOTTOM
         )
         
+        # 构建右侧内容区（StackedWidget + 全局进度条）
+        self.right_widget = QWidget()
+        self.right_layout = QVBoxLayout(self.right_widget)
+        self.right_layout.setContentsMargins(0, 0, 0, 0)
+        self.right_layout.setSpacing(0)
+        
+        self.right_layout.addWidget(self.stacked_widget)
+        
+        # ===== 全局共享进度条 =====
+        self.global_progress = self._ProgressBar()
+        self.global_progress.setRange(0, 100)
+        self.global_progress.setValue(0)
+        self.global_progress.setVisible(False)
+        self.global_progress.setFixedHeight(4) # 设为细长条更美观
+        self.right_layout.addWidget(self.global_progress)
+
+        # 整体布局
         central_widget = self._SimpleCardWidget()
         layout = QHBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(self.navigation_interface)
-        layout.addWidget(self.stacked_widget)
+        layout.addWidget(self.right_widget)
         self.setCentralWidget(central_widget)
         
         self.set_dark_mode_style()
@@ -174,7 +191,6 @@ class MainUI(QMainWindow):
     # ================= UI 页面创建 =================
 
     def create_home_page(self):
-        """创建主页"""
         self.home_widget = self._SimpleCardWidget()
         self.main_layout = QVBoxLayout(self.home_widget)
         self.main_layout.setContentsMargins(16, 16, 16, 16)
@@ -192,7 +208,6 @@ class MainUI(QMainWindow):
         header.addStretch()
         self.main_layout.addLayout(header)
 
-        # 输入卡片
         input_card = self._SimpleCardWidget()
         input_title = self._Label("输入文件")
         input_title.setObjectName("sectionTitle")
@@ -221,7 +236,6 @@ class MainUI(QMainWindow):
         input_layout.addLayout(grid)
         self.main_layout.addWidget(input_card)
 
-        # 输出卡片
         output_group = self._SimpleCardWidget()
         output_title = self._Label("输出设置")
         output_title.setObjectName("sectionTitle")
@@ -251,7 +265,6 @@ class MainUI(QMainWindow):
         output_layout.addLayout(filename_layout)
         self.main_layout.addWidget(output_group)
 
-        # 预设卡片
         preset_card = self._SimpleCardWidget()
         preset_title = self._Label("预设")
         preset_title.setObjectName("sectionTitle")
@@ -269,7 +282,6 @@ class MainUI(QMainWindow):
         self.preset_desc.setStyleSheet("color: gray; font-style: italic;")
         self.main_layout.addWidget(self.preset_desc)
 
-        # 按钮：加入队列
         self.btn_start = self._PushButton("加入队列")
         self.btn_start.setMinimumHeight(40)
         self.btn_start.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -277,7 +289,6 @@ class MainUI(QMainWindow):
         self.btn_start.setProperty('type', 'primary')
         self.main_layout.addWidget(self.btn_start)
 
-        # 绑定事件
         self.btn_browse_video.clicked.connect(self.browse_video)
         self.btn_browse_sub.clicked.connect(self.browse_subtitle)
         self.btn_browse_output.clicked.connect(self.browse_output)
@@ -289,7 +300,6 @@ class MainUI(QMainWindow):
         self.stacked_widget.addWidget(self.home_widget)
 
     def create_log_page(self):
-        """创建日志页面（去掉了进度条，仅保留纯文本输出）"""
         self.log_widget = self._SimpleCardWidget()
         layout = QVBoxLayout(self.log_widget)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -300,6 +310,7 @@ class MainUI(QMainWindow):
         
         self.log_output = self._TextEdit()
         self.log_output.setReadOnly(True)
+        # 保持终端控制台风格
         self.log_output.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; font-family: Consolas;")
         layout.addWidget(self.log_output)
         
@@ -310,7 +321,6 @@ class MainUI(QMainWindow):
         self.stacked_widget.addWidget(self.log_widget)
 
     def create_queue_page(self):
-        """创建任务队列页面"""
         self.queue_widget = self._SimpleCardWidget()
         layout = QVBoxLayout(self.queue_widget)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -320,7 +330,6 @@ class MainUI(QMainWindow):
         title.setObjectName('appTitle')
         layout.addWidget(title)
 
-        # 滚动区域存放队列任务卡片
         self.queue_scroll = self._ScrollArea()
         self.queue_scroll.setWidgetResizable(True)
         self.queue_scroll.setStyleSheet("QScrollArea { background-color: transparent; border: none; }")
@@ -411,7 +420,6 @@ class MainUI(QMainWindow):
                 f.write(self.log_output.toPlainText())
 
     def truncate_string(self, text, max_len=25):
-        """长文本截断，保留首尾"""
         if len(text) <= max_len: return text
         half = (max_len - 3) // 2
         return f"{text[:half]}...{text[-half:]}"
@@ -419,7 +427,6 @@ class MainUI(QMainWindow):
     # ================= 核心业务：队列控制 =================
 
     def add_to_queue_action(self):
-        """处理加入队列动作"""
         video = self.video_input.text()
         sub = self.sub_input.text()
         output_dir = self.output_input.text()
@@ -452,18 +459,13 @@ class MainUI(QMainWindow):
         if current_preset in presets:
             template = presets[current_preset][1]
             try:
-                # 若无字幕，去掉字幕参数
                 if not sub:
                     template = re.sub(r'-vf\s+"subtitles=\'\{input_s\}\'"', '', template)
                     template = re.sub(r'\s+', ' ', template).strip()
                 
-                # 推送任务到引擎队列
                 task = self.engine.add_to_queue(template, video, sub, output_dir, filename, format_val, current_preset)
-                
-                # 创建对应的 UI 卡片
                 self.create_task_widget(task)
                 
-                # 跳转到队列页面
                 self.navigation_interface.setCurrentItem('queue')
                 self.switch_to_page(2)
 
@@ -471,7 +473,6 @@ class MainUI(QMainWindow):
                 self._MessageBox.critical(self, "错误", f"错误: {str(e)}")
 
     def create_task_widget(self, task):
-        """生成队列中的任务卡片"""
         card = QFrame()
         card.setObjectName("taskCard")
         layout = QHBoxLayout(card)
@@ -504,13 +505,11 @@ class MainUI(QMainWindow):
         self.update_task_ui(task.task_id)
 
     def update_task_ui(self, task_id):
-        """响应状态变更信号，刷新卡片 UI"""
         task = next((t for t in self.engine.queue if t.task_id == task_id), None)
         if not task or task_id not in self.task_widgets: return
             
         widgets = self.task_widgets[task_id]
         
-        # 截断路径名称用于显示
         v_name = self.truncate_string(os.path.basename(task.video), 25)
         o_name = self.truncate_string(os.path.basename(task.output_path), 25)
         
@@ -520,27 +519,35 @@ class MainUI(QMainWindow):
         status_label = widgets["status"]
         cancel_btn = widgets["cancel_btn"]
         
+        # 局部UI状态更新
         if task.status == "等待中":
             status_label.setText("等待中")
             status_label.setStyleSheet("color: #808080;")
             cancel_btn.setEnabled(True)
-            
         elif task.status == "压制中":
             status_label.setText(f"{task.progress}%")
             status_label.setStyleSheet("color: #0078D4; font-weight: bold;")
             cancel_btn.setEnabled(True)
-            
         elif task.status == "已完成":
             status_label.setText("已完成")
             status_label.setStyleSheet("color: #28a745; font-weight: bold;")
             cancel_btn.setEnabled(False)
-            
         elif task.status == "已取消":
             status_label.setText("已取消")
             status_label.setStyleSheet("color: #6c757d;")
             cancel_btn.setEnabled(False)
-            
         elif task.status == "失败":
             status_label.setText("失败")
             status_label.setStyleSheet("color: #dc3545; font-weight: bold;")
             cancel_btn.setEnabled(False)
+
+        # ====== 全局共享进度条逻辑 ======
+        if task.status == "压制中":
+            self.global_progress.setVisible(True)
+            self.global_progress.setValue(task.progress)
+        elif task.status in ["已完成", "已取消", "失败"]:
+            # 如果当前没有任何任务在“压制中”，则隐藏进度条并归零
+            is_running = any(t.status == "压制中" for t in self.engine.queue)
+            if not is_running:
+                self.global_progress.setVisible(False)
+                self.global_progress.setValue(0)

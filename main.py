@@ -121,6 +121,10 @@ class TranscodeEngine(QObject):
                 self.task_status_changed.emit(task.task_id)
                 
                 self._log_to_window(f"<b>[{os.path.basename(task.video)}]</b> 开始压制...", "green")
+                
+                # ---> 新增这一行：用蓝色输出即将执行的完整 FFmpeg 命令 <---
+                self._log_to_window(f"<b>[{os.path.basename(task.video)}]</b> 执行命令: {task.final_cmd}", "blue")
+                
                 self.process.startCommand(task.final_cmd)
                 return
         
