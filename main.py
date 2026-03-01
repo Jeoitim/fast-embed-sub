@@ -136,12 +136,23 @@ class TranscodeEngine(QObject):
         for task in self.queue:
             if task.task_id == task_id:
                 if task.status == "压制中":
-                    self.process.kill() # 触发 on_process_finished
+                    self.process.kill()  # 触发 on_process_finished
                     task.status = "已取消"
+                    # 延迟删除未完成的文件，等待进程完全结束
+                    QTimer.singleShot(100, lambda: self._delete_unfinished_file(task))
                 elif task.status == "等待中":
                     task.status = "已取消"
                 self.task_status_changed.emit(task_id)
                 break
+
+    def _delete_unfinished_file(self, task):
+        """删除未完成的文件"""
+        if os.path.exists(task.output_path):
+            try:
+                os.remove(task.output_path)
+                self._log_to_window(f"<b>[{os.path.basename(task.video)}]</b> 已删除未完成文件: {os.path.basename(task.output_path)}", "orange")
+            except Exception as e:
+                self._log_to_window(f"<b>[{os.path.basename(task.video)}]</b> 删除文件失败: {e}", "red")
 
     def _log_to_window(self, message, color=None):
         """统一辅助函数：发送日志到 GUI 窗口"""
@@ -157,6 +168,8 @@ class TranscodeEngine(QObject):
         if self.current_task:
             if self.current_task.status == "已取消":
                 self._log_to_window(f"<b>[{os.path.basename(self.current_task.video)}]</b> 任务已手动取消", "gray")
+                # 确保取消任务时删除文件，此时进程已完全结束
+                self._delete_unfinished_file(self.current_task)
             elif exit_code == 0:
                 self.current_task.status = "已完成"
                 self.current_task.progress = 100

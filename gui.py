@@ -447,12 +447,8 @@ class MainUI(QMainWindow):
 
         output_path = os.path.join(output_dir, f"{filename}.{format_val}")
         if os.path.exists(output_path):
-            new_filename, ok = QInputDialog.getText(
-                self, "文件已存在", f"输出文件已存在：\n{output_path}\n\n请输入新的文件名:", 
-                self._LineEdit.Normal, filename
-            )
-            if not ok or not new_filename: return
-            filename = new_filename
+            self._MessageBox.warning(self, "警告", f"输出文件已存在：\n{output_path}\n\n请更改文件名或输出目录后再试。")
+            return
 
         current_preset = self.preset_combo.currentText()
         presets = self.engine.get_presets()
