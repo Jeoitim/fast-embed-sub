@@ -8,7 +8,7 @@
 
 # 关于页信息变量
 ABOUT_CONTENT = """
-<h2>Fast Embed Sub v0.1.2 beta</h2>
+<h2>Fast Embed Sub v0.1.3 beta</h2>
 <p><img src="{icon}" width="128" height="128"></p>
 <p><b>作者:</b> Jeoitim Yip</p>
 <p><b>GitHub:</b> <a href="https://github.com/Jeoitim/fast-embed-sub">https://github.com/Jeoitim/fast-embed-sub</a></p>
