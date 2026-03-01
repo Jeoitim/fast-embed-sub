@@ -122,7 +122,7 @@ class MainUI(QMainWindow):
         
         self.navigation_interface.addItem(
             routeKey='log',
-            icon=FluentIcon.FONT,
+            icon=FluentIcon.DOCUMENT,
             text='日志',
             onClick=lambda: self.switch_to_page(1),
             position=NavigationItemPosition.TOP
