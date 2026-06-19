@@ -1,6 +1,8 @@
 import os
 import re
 import sys
+import shutil
+import uuid
 from PySide6.QtCore import QTimer, QProcess, QObject, Signal
 
 class TranscodeTask:
@@ -31,6 +33,16 @@ class TranscodeEngine(QObject):
             self.bundle_dir = os.path.dirname(os.path.abspath(__file__))
         
         self.ffmpeg_path = os.path.abspath(os.path.join(self.bundle_dir, ffmpeg_path))
+        if not os.path.exists(self.ffmpeg_path):
+            # 自动寻路环境变量中的 ffmpeg
+            sys_ffmpeg = shutil.which("ffmpeg")
+            if sys_ffmpeg:
+                self.ffmpeg_path = sys_ffmpeg
+            else:
+                # 延迟发出通知，等待界面连接好 log_message 信号
+                QTimer.singleShot(500, lambda: self._log_to_window(
+                    "<b>[警告]</b> 未在 components/ 目录下检测到 ffmpeg.exe，且环境变量中没有找到 ffmpeg。压制任务将无法正常运行！", "red"
+                ))
         
         # 任务队列管理
         self.queue = []  # 存储 TranscodeTask 对象
@@ -48,7 +60,20 @@ class TranscodeEngine(QObject):
         presets_dir = os.path.join(self.bundle_dir, "presets")
         if not os.path.exists(presets_dir):
             os.makedirs(presets_dir, exist_ok=True)
-            # ... 创建默认预设逻辑 ...
+            
+        # 若预设文件夹为空，自动创建一个可用的默认预设文件
+        if not os.listdir(presets_dir) or len([f for f in os.listdir(presets_dir) if f.endswith('.txt')]) == 0:
+            default_preset_path = os.path.join(presets_dir, "默认.txt")
+            default_content = (
+                "# 默认压制 - H.264 + AAC\n"
+                "components/ffmpeg.exe -y -i \"{input_v}\" -vf \"subtitles='{input_s}'\" "
+                "-c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k \"{output_dir}/{filename}.{format}\"\n"
+            )
+            try:
+                with open(default_preset_path, 'w', encoding='utf-8') as f:
+                    f.write(default_content)
+            except Exception as e:
+                print(f"写入默认预设文件失败: {e}")
         
         for filename in os.listdir(presets_dir):
             if filename.endswith('.txt'):
@@ -99,7 +124,7 @@ class TranscodeEngine(QObject):
         final_cmd = final_cmd.replace('components/ffmpeg.exe', f'"{self.ffmpeg_path}"')
 
         # 4. 创建任务对象并入队
-        task_id = f"task_{len(self.queue)}_{os.path.basename(video)}"
+        task_id = f"task_{uuid.uuid4().hex[:8]}_{os.path.basename(video)}"
         new_task = TranscodeTask(task_id, video, sub, output_path, preset_name, final_cmd)
         self.queue.append(new_task)
         

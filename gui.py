@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (QVBoxLayout, QHBoxLayout, QGridLayout,
                                QFileDialog, QSizePolicy, QMainWindow, QInputDialog,
                                QWidget, QFrame)
 from PySide6.QtGui import QIcon, QDragEnterEvent, QDropEvent
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 import os
 import re
 import ctypes
@@ -151,9 +151,26 @@ class MainUI(QMainWindow):
         
         self.set_dark_mode_style()
         self.switch_to_page('home')
+        
+        # 延迟 100ms 加载预设，提高首屏渲染响应度
+        QTimer.singleShot(100, self.load_presets)
 
     def showEvent(self, event):
         super().showEvent(event)
+
+    def closeEvent(self, event):
+        # 退出前确保杀死所有正在运行的转码进程，防止 ffmpeg 变成后台僵尸进程
+        if self.engine and self.engine.current_task:
+            reply = self._MessageBox("提示", "当前有任务正在压制，确定要退出并取消任务吗？", self)
+            if reply.exec():
+                self.engine.cancel_task(self.engine.current_task.task_id)
+                # 等待一会儿让进程完全退出和删除未完成文件
+                self.engine.process.waitForFinished(1000)
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            event.accept()
         from qfluentwidgets import isDarkTheme
         if isDarkTheme():
             self.set_dark_mode_style()
@@ -300,7 +317,6 @@ class MainUI(QMainWindow):
         self.preset_combo.currentIndexChanged.connect(self.update_preset_desc)
         self.video_input.textChanged.connect(self.on_video_changed)
 
-        self.load_presets()
         self.stacked_widget.addWidget(self.home_widget)
         self.pages['home'] = self.home_widget
 
