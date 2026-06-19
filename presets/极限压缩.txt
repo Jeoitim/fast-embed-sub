@@ -1,0 +1,2 @@
+# 适合长期存储：H.265 高压缩，体积最小(CRF 28)，画质尚可，压制速度很慢，音频转码 AAC。
+components/ffmpeg.exe -i "{input_v}" -vf "subtitles={input_s}" -c:v libx265 -preset slow -crf 28 -c:a aac -b:a 96k -y "{output_dir}/{filename}.{format}"

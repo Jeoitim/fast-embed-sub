@@ -1,0 +1,2 @@
+# 适合微信、QQ、Discord 等分享：H.264 高压缩，体积很小(CRF 28)，画质可接受，音频转码 AAC。
+components/ffmpeg.exe -i "{input_v}" -vf "subtitles={input_s}" -c:v libx264 -preset medium -crf 28 -c:a aac -b:a 128k -y "{output_dir}/{filename}.{format}"

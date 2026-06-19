@@ -1,0 +1,2 @@
+# 适合网页嵌入：VP9 编码，输出 WebM 格式，画质好(CRF 30)，音频 Opus，兼容主流浏览器。
+components/ffmpeg.exe -i "{input_v}" -vf "subtitles={input_s}" -c:v libvpx-vp9 -b:v 0 -crf 30 -c:a libopus -b:a 128k -y "{output_dir}/{filename}.{format:webm}"

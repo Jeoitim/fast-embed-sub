@@ -1,0 +1,2 @@
+# 适合快速预览：速度极快，画质一般(CRF 23)，体积小，音频无损直通。用于快速检查字幕效果。
+components/ffmpeg.exe -i "{input_v}" -vf "subtitles={input_s}" -c:v libx264 -preset ultrafast -crf 23 -c:a copy -y "{output_dir}/{filename}.{format}"

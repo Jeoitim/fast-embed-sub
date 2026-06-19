@@ -80,6 +80,16 @@ TRANSLATIONS = {
         '收藏': '收藏',
         '默认_desc': '适合上传视频网站：速度快，画质极高(CRF 18)，体积中等偏大，音频无损直通。',
         '收藏_desc': '适合本地收藏与BT分享：采用 H.265 10bit 编码，体积小画质极佳，但压制速度较慢，音频无损直通。',
+        '极速': '极速',
+        '极速_desc': '适合快速预览：速度极快，画质一般(CRF 23)，体积小，音频无损直通。用于快速检查字幕效果。',
+        '社交媒体': '社交媒体',
+        '社交媒体_desc': '适合微信、QQ、Discord 等分享：H.264 高压缩，体积很小(CRF 28)，画质可接受，音频转码 AAC。',
+        '手机': '手机',
+        '手机_desc': '适合手机播放与传输：H.264 中等画质(CRF 23)，限制 720p，体积适中，音频 AAC 128k。',
+        '极限压缩': '极限压缩',
+        '极限压缩_desc': '适合长期存储：H.265 高压缩，体积最小(CRF 28)，画质尚可，压制速度很慢，音频转码 AAC。',
+        'WebM': 'WebM',
+        'WebM_desc': '适合网页嵌入：VP9 编码，输出 WebM 格式，画质好(CRF 30)，音频 Opus，兼容主流浏览器。',
     },
     'en': {
         'home': 'Home',
@@ -142,9 +152,19 @@ TRANSLATIONS = {
         
         # Presets
         '默认': 'Default',
-        '收藏': 'Favorites',
+        '收藏': 'Archive',
         '默认_desc': 'Suitable for video upload sites: Fast speed, extremely high quality (CRF 18), medium-large size, audio copy.',
         '收藏_desc': 'Suitable for local collection & torrent sharing: H.265 10bit encoding, small size, excellent quality, slower encoding speed, audio copy.',
+        '极速': 'Ultra Fast',
+        '极速_desc': 'Suitable for quick preview: Extremely fast, average quality (CRF 23), small size, audio copy. For quickly checking subtitle effects.',
+        '社交媒体': 'Social Media',
+        '社交媒体_desc': 'Suitable for sharing on WeChat, QQ, Discord, etc.: H.264 high compression, very small size (CRF 28), acceptable quality, audio re-encoded to AAC.',
+        '手机': 'Mobile',
+        '手机_desc': 'Suitable for mobile playback & transfer: H.264 medium quality (CRF 23), capped at 720p, moderate size, AAC 128k audio.',
+        '极限压缩': 'Max Compression',
+        '极限压缩_desc': 'Suitable for long-term storage: H.265 high compression, smallest size (CRF 28), decent quality, very slow encoding, audio re-encoded to AAC.',
+        'WebM': 'WebM',
+        'WebM_desc': 'Suitable for web embedding: VP9 encoding, outputs WebM format, good quality (CRF 30), Opus audio, compatible with major browsers.',
     }
 }
 

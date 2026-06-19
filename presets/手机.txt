@@ -1,0 +1,2 @@
+# 适合手机播放与传输：H.264 中等画质(CRF 23)，限制 720p，体积适中，音频 AAC 128k。
+components/ffmpeg.exe -i "{input_v}" -vf "subtitles={input_s},scale=-2:720" -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -y "{output_dir}/{filename}.{format}"
