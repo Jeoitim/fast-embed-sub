@@ -40,6 +40,41 @@ nuitka "--standalone" `
        "--nofollow-import-to=scipy" `
        "--nofollow-import-to=numpy" `
        "--nofollow-import-to=pyqt5" `
+       "--nofollow-import-to=matplotlib" `
+       "--nofollow-import-to=pandas" `
+       "--nofollow-import-to=PySide6.Qt3DAnimation" `
+       "--nofollow-import-to=PySide6.Qt3DCore" `
+       "--nofollow-import-to=PySide6.Qt3DExtras" `
+       "--nofollow-import-to=PySide6.Qt3DInput" `
+       "--nofollow-import-to=PySide6.Qt3DLogic" `
+       "--nofollow-import-to=PySide6.Qt3DRender" `
+       "--nofollow-import-to=PySide6.QtBluetooth" `
+       "--nofollow-import-to=PySide6.QtCharts" `
+       "--nofollow-import-to=PySide6.QtDataVisualization" `
+       "--nofollow-import-to=PySide6.QtDesigner" `
+       "--nofollow-import-to=PySide6.QtLocation" `
+       "--nofollow-import-to=PySide6.QtMultimedia" `
+       "--nofollow-import-to=PySide6.QtMultimediaWidgets" `
+       "--nofollow-import-to=PySide6.QtNfc" `
+       "--nofollow-import-to=PySide6.QtPdf" `
+       "--nofollow-import-to=PySide6.QtPdfWidgets" `
+       "--nofollow-import-to=PySide6.QtPositioning" `
+       "--nofollow-import-to=PySide6.QtQml" `
+       "--nofollow-import-to=PySide6.QtQuick" `
+       "--nofollow-import-to=PySide6.QtQuickWidgets" `
+       "--nofollow-import-to=PySide6.QtQuickControls2" `
+       "--nofollow-import-to=PySide6.QtRemoteObjects" `
+       "--nofollow-import-to=PySide6.QtSensors" `
+       "--nofollow-import-to=PySide6.QtSerialPort" `
+       "--nofollow-import-to=PySide6.QtSpatialAudio" `
+       "--nofollow-import-to=PySide6.QtSql" `
+       "--nofollow-import-to=PySide6.QtTest" `
+       "--nofollow-import-to=PySide6.QtUiTools" `
+       "--nofollow-import-to=PySide6.QtWebChannel" `
+       "--nofollow-import-to=PySide6.QtWebEngineCore" `
+       "--nofollow-import-to=PySide6.QtWebEngineWidgets" `
+       "--nofollow-import-to=PySide6.QtWebEngineQuick" `
+       "--nofollow-import-to=PySide6.QtWebSockets" `
        "--follow-imports" `
        "main.py"
 

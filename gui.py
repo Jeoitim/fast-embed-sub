@@ -84,32 +84,36 @@ class MainUI(QMainWindow):
             self.setWindowIcon(QIcon(icon_path))
 
         # ====== 核心初始化：引擎与信号 ======
-        from main import TranscodeEngine
+        from engine import TranscodeEngine
         self.engine = TranscodeEngine()
         self.engine.task_status_changed.connect(self.update_task_ui)
+        self.engine.log_message.connect(self._on_log_message)
         self.task_widgets = {} # 存储队列UI卡片的字典
+        self.log_history = [] # 缓存历史日志
 
         # ====== 导航与页面架构 ======
         self.navigation_interface = NavigationInterface(self, showMenuButton=True)
         from PySide6.QtWidgets import QStackedWidget
         self.stacked_widget = QStackedWidget()
         
-        self.create_home_page()
-        self.create_log_page()
-        self.create_queue_page()
-        self.create_about_page()
+        self.pages = {
+            'home': None,
+            'log': None,
+            'queue': None,
+            'about': None
+        }
         
         self.navigation_interface.addItem(
             routeKey='home', icon=FluentIcon.HOME, text='主页',
-            onClick=lambda: self.switch_to_page(0), position=NavigationItemPosition.TOP
+            onClick=lambda: self.switch_to_page('home'), position=NavigationItemPosition.TOP
         )
         self.navigation_interface.addItem(
             routeKey='queue', icon=FluentIcon.HISTORY, text='任务队列',
-            onClick=lambda: self.switch_to_page(2), position=NavigationItemPosition.TOP
+            onClick=lambda: self.switch_to_page('queue'), position=NavigationItemPosition.TOP
         )
         self.navigation_interface.addItem(
             routeKey='log', icon=FluentIcon.DOCUMENT, text='日志',
-            onClick=lambda: self.switch_to_page(1), position=NavigationItemPosition.TOP
+            onClick=lambda: self.switch_to_page('log'), position=NavigationItemPosition.TOP
         )
         self.navigation_interface.addItem(
             routeKey='theme', icon=FluentIcon.BRUSH, text='切换主题',
@@ -117,7 +121,7 @@ class MainUI(QMainWindow):
         )
         self.navigation_interface.addItem(
             routeKey='about', icon=FluentIcon.INFO, text='关于',
-            onClick=lambda: self.switch_to_page(3), position=NavigationItemPosition.BOTTOM
+            onClick=lambda: self.switch_to_page('about'), position=NavigationItemPosition.BOTTOM
         )
         
         # 构建右侧内容区（StackedWidget + 全局进度条）
@@ -146,7 +150,7 @@ class MainUI(QMainWindow):
         self.setCentralWidget(central_widget)
         
         self.set_dark_mode_style()
-        self.switch_to_page(0)
+        self.switch_to_page('home')
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -298,6 +302,7 @@ class MainUI(QMainWindow):
 
         self.load_presets()
         self.stacked_widget.addWidget(self.home_widget)
+        self.pages['home'] = self.home_widget
 
     def create_log_page(self):
         self.log_widget = self._SimpleCardWidget()
@@ -314,11 +319,16 @@ class MainUI(QMainWindow):
         self.log_output.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; font-family: Consolas;")
         layout.addWidget(self.log_output)
         
+        # 填充历史日志
+        for log in self.log_history:
+            self.log_output.append(log)
+        
         self.btn_export_log = self._PushButton("导出日志")
         self.btn_export_log.clicked.connect(self.export_log)
         layout.addWidget(self.btn_export_log, alignment=Qt.AlignLeft)
         
         self.stacked_widget.addWidget(self.log_widget)
+        self.pages['log'] = self.log_widget
 
     def create_queue_page(self):
         self.queue_widget = self._SimpleCardWidget()
@@ -344,6 +354,7 @@ class MainUI(QMainWindow):
         layout.addWidget(self.queue_scroll)
         
         self.stacked_widget.addWidget(self.queue_widget)
+        self.pages['queue'] = self.queue_widget
 
     def create_about_page(self):
         self.about_widget = self._SimpleCardWidget()
@@ -360,11 +371,23 @@ class MainUI(QMainWindow):
         layout.addWidget(about_content)
         
         self.stacked_widget.addWidget(self.about_widget)
+        self.pages['about'] = self.about_widget
 
     # ================= 辅助函数与事件 =================
 
-    def switch_to_page(self, index):
-        self.stacked_widget.setCurrentIndex(index)
+    def switch_to_page(self, name):
+        if self.pages.get(name) is None:
+            if name == 'home':
+                self.create_home_page()
+            elif name == 'log':
+                self.create_log_page()
+            elif name == 'queue':
+                self.create_queue_page()
+            elif name == 'about':
+                self.create_about_page()
+        widget = self.pages.get(name)
+        if widget:
+            self.stacked_widget.setCurrentWidget(widget)
 
     def load_presets(self):
         presets = self.engine.get_presets()
@@ -424,6 +447,16 @@ class MainUI(QMainWindow):
         half = (max_len - 3) // 2
         return f"{text[:half]}...{text[-half:]}"
 
+    def show_warning(self, title, content):
+        w = self._MessageBox(title, content, self)
+        w.hideCancelButton()
+        w.exec()
+
+    def show_critical(self, title, content):
+        w = self._MessageBox(title, content, self)
+        w.hideCancelButton()
+        w.exec()
+
     # ================= 核心业务：队列控制 =================
 
     def add_to_queue_action(self):
@@ -434,7 +467,7 @@ class MainUI(QMainWindow):
         format_val = self.format_combo.currentText()
 
         if not video:
-            self._MessageBox.warning(self, "警告", "请确保已选择视频文件")
+            self.show_warning("警告", "请确保已选择视频文件")
             return
 
         if not output_dir:
@@ -447,7 +480,7 @@ class MainUI(QMainWindow):
 
         output_path = os.path.join(output_dir, f"{filename}.{format_val}")
         if os.path.exists(output_path):
-            self._MessageBox.warning(self, "警告", f"输出文件已存在：\n{output_path}\n\n请更改文件名或输出目录后再试。")
+            self.show_warning("警告", f"输出文件已存在：\n{output_path}\n\n请更改文件名或输出目录后再试。")
             return
 
         current_preset = self.preset_combo.currentText()
@@ -460,13 +493,12 @@ class MainUI(QMainWindow):
                     template = re.sub(r'\s+', ' ', template).strip()
                 
                 task = self.engine.add_to_queue(template, video, sub, output_dir, filename, format_val, current_preset)
-                self.create_task_widget(task)
-                
+                self.switch_to_page('queue')
                 self.navigation_interface.setCurrentItem('queue')
-                self.switch_to_page(2)
+                self.create_task_widget(task)
 
             except ValueError as e:
-                self._MessageBox.critical(self, "错误", f"错误: {str(e)}")
+                self.show_critical("错误", f"错误: {str(e)}")
 
     def create_task_widget(self, task):
         card = QFrame()
@@ -547,3 +579,9 @@ class MainUI(QMainWindow):
             if not is_running:
                 self.global_progress.setVisible(False)
                 self.global_progress.setValue(0)
+
+    def _on_log_message(self, message, color):
+        styled = f'<span style="color: {color};">{message}</span>' if color else message
+        self.log_history.append(styled)
+        if self.pages.get('log') is not None:
+            self.log_output.append(styled)
