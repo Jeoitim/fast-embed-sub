@@ -1,3 +1,5 @@
+[English README](README_EN.md) | 简体中文
+
 # Fast Embed Sub
 
 一款轻量级、跨平台的字幕压制工具，基于 FFmpeg 和 PySide6 开发，支持自定义预设，操作简单直观。
