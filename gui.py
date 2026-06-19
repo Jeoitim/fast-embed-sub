@@ -298,7 +298,7 @@ class MainUI(QMainWindow):
         self.btn_browse_output.clicked.connect(self.browse_output)
         self.btn_start.clicked.connect(self.add_to_queue_action)
         self.preset_combo.currentIndexChanged.connect(self.update_preset_desc)
-        self.video_input.textChanged.connect(self.auto_detect_subtitle)
+        self.video_input.textChanged.connect(self.on_video_changed)
 
         self.load_presets()
         self.stacked_widget.addWidget(self.home_widget)
@@ -411,10 +411,17 @@ class MainUI(QMainWindow):
             else:
                 self.format_combo.setEnabled(True)
 
-    def auto_detect_subtitle(self, video_path):
+    def on_video_changed(self, video_path):
         if not video_path or not os.path.isfile(video_path): return
         video_dir = os.path.dirname(video_path)
         video_name = os.path.splitext(os.path.basename(video_path))[0]
+        
+        # 自动更新文件名与输出目录
+        self.filename_input.setText(video_name)
+        self.output_input.setText(video_dir)
+        
+        # 自动检测同名外部字幕（先清空，防止旧字幕残留）
+        self.sub_input.clear()
         for ext in ['.srt', '.ass', '.ssa']:
             sub_path = os.path.join(video_dir, video_name + ext)
             if os.path.exists(sub_path):
