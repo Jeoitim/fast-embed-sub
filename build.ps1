@@ -34,10 +34,10 @@ $NuitkaArgs = @(
 )
 
 if (Get-Command "upx" -ErrorAction SilentlyContinue) {
-    Write-Host "检测到 UPX，已自动启用 Nuitka UPX 压缩，这会大幅缩减生成的 exe 和 dll 文件的体积。" -ForegroundColor Green
+    Write-Host '检测到 UPX，已自动启用 Nuitka UPX 压缩，这会大幅缩减生成的 exe 和 dll 文件的体积。' -ForegroundColor Green
     $NuitkaArgs += "--upx-binary=upx"
 } else {
-    Write-Host "未检测到 UPX。提示：如果想要将软件体积进一步缩减 ~50%，请下载 UPX (https://upx.github.io/) 并将其所在目录加入到系统环境变量 PATH 中。" -ForegroundColor Yellow
+    Write-Host '未检测到 UPX。提示：如果想要将软件体积进一步缩减 ~50%，请前往 https://upx.github.io 下载 UPX 并将其所在目录加入到系统环境变量 PATH 中。' -ForegroundColor Yellow
 }
 
 # 排除不需要的第三方库和 Qt 子模块，减少打包体积
