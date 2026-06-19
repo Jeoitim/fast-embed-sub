@@ -24,11 +24,11 @@ A lightweight, cross-platform subtitle embedding tool developed based on FFmpeg 
 
 Main Interface - Clean and intuitive operation panel
 
-![Main Interface](https://github.com/user-attachments/assets/426be95b-9289-471e-93bd-541db95658e4)
+![Main Interface](https://github.com/user-attachments/assets/0cafe3a2-0cc3-4f54-8b10-fe059b0c43e7)
 
 Log Interface - Real-time encoding progress and detailed log console
 
-![Log Interface](https://github.com/user-attachments/assets/f1fb9e6b-8661-406e-9f51-b48f46752a5d)
+![Log Interface](https://github.com/user-attachments/assets/1164bb04-d9b2-495c-9aa4-4d4289823ea7)
 
 ## 🌟 Modular Preset Configuration Sharing Philosophy
 

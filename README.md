@@ -25,11 +25,11 @@
 
 主界面 - 简洁直观的操作面板
 
-![主界面](https://github.com/user-attachments/assets/426be95b-9289-471e-93bd-541db95658e4)
+![主界面](https://github.com/user-attachments/assets/0cafe3a2-0cc3-4f54-8b10-fe059b0c43e7)
 
 日志界面 - 实时显示压制进度和详细信息
 
-![日志界面](https://github.com/user-attachments/assets/f1fb9e6b-8661-406e-9f51-b48f46752a5d)
+![日志界面](https://github.com/user-attachments/assets/1164bb04-d9b2-495c-9aa4-4d4289823ea7)
 
 ## 🌟 模块化预设配置分享理念
 
