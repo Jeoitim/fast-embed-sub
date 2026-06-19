@@ -5,6 +5,11 @@ import shutil
 import uuid
 from PySide6.QtCore import QTimer, QProcess, QObject, Signal
 
+# 预编译正则表达式以提高解析性能
+DURATION_REGEX = re.compile(r'Duration: (\d+):(\d+):(\d+\.\d+)')
+TIME_REGEX = re.compile(r'time=(\d+):(\d+):(\d+\.\d+)')
+
+
 class TranscodeTask:
     """定义单个压制任务的状态模型"""
     def __init__(self, task_id, video, sub, output_path, preset_name, final_cmd):
@@ -217,30 +222,38 @@ class TranscodeEngine(QObject):
         data = self.process.readAllStandardOutput().data().decode('utf-8', errors='ignore')
         if self.current_task:
             prefix = f"[{os.path.basename(self.current_task.video)}]"
-            self._log_to_window(f"{prefix} {data.strip()}")
+            for line in data.splitlines():
+                line = line.strip()
+                if line:
+                    self._log_to_window(f"{prefix} {line}")
 
     def on_ready_read_stderr(self):
         data = self.process.readAllStandardError().data().decode('utf-8', errors='ignore')
         if not self.current_task: return
         
-        line = data.strip()
-        # 解析时长
-        if not self.current_task.duration_parsed and 'Duration:' in line:
-            match = re.search(r'Duration: (\d+):(\d+):(\d+\.\d+)', line)
-            if match:
-                h, m, s = match.groups()
-                self.current_task.total_duration = int(h) * 3600 + int(m) * 60 + float(s)
-                self.current_task.duration_parsed = True
+        prefix = f"[{os.path.basename(self.current_task.video)}]"
+        for line in data.splitlines():
+            line = line.strip()
+            if not line: continue
+            
+            # 解析时长
+            if not self.current_task.duration_parsed and 'Duration:' in line:
+                match = DURATION_REGEX.search(line)
+                if match:
+                    h, m, s = match.groups()
+                    self.current_task.total_duration = int(h) * 3600 + int(m) * 60 + float(s)
+                    self.current_task.duration_parsed = True
 
-        # 解析进度
-        if 'time=' in line and self.current_task.total_duration:
-            match = re.search(r'time=(\d+):(\d+):(\d+\.\d+)', line)
-            if match:
-                h, m, s = match.groups()
-                curr = int(h) * 3600 + int(m) * 60 + float(s)
-                prog = min(100, int((curr / self.current_task.total_duration) * 100))
-                if prog != self.current_task.progress:
-                    self.current_task.progress = prog
-                    self.task_status_changed.emit(self.current_task.task_id)
-        
-        self._log_to_window(f"[{os.path.basename(self.current_task.video)}] {line}")
+            # 解析进度
+            if 'time=' in line and self.current_task.total_duration:
+                match = TIME_REGEX.search(line)
+                if match:
+                    h, m, s = match.groups()
+                    curr = int(h) * 3600 + int(m) * 60 + float(s)
+                    prog = min(100, int((curr / self.current_task.total_duration) * 100))
+                    if prog != self.current_task.progress:
+                        self.current_task.progress = prog
+                        self.task_status_changed.emit(self.current_task.task_id)
+            
+            self._log_to_window(f"{prefix} {line}")
+

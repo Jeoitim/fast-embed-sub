@@ -16,76 +16,63 @@ if (Test-Path $GitignoreFile) {
     Write-Host "已创建 .gitignore 并添加 $IgnoreEntry" -ForegroundColor Green
 }
 
-# 3. 执行 Nuitka 打包命令
-# --standalone: 独立运行库
-# --show-memory --show-progress: 显示过程
-# --plugin-enable=pyside6: 自动处理 PySide6 依赖
-# --include-data-dir: 包含你的资源文件夹
-# --output-dir: 指定输出到 outputs
-# --windows-icon-from-ico: 设置程序图标
-# --experimental=debug-report-traceback : 生成调试报告（如果打包失败可以查看）（按需使用命令）
+# 3. 检测 UPX 并组装 Nuitka 打包参数
+$NuitkaArgs = @(
+    "--standalone",
+    "--msvc=latest",
+    "--show-memory",
+    "--show-progress",
+    "--jobs=$env:NUMBER_OF_PROCESSORS",
+    "--plugin-enable=pyside6",
+    "--windows-disable-console",
+    "--include-data-dir=assets=assets",
+    "--include-data-dir=components=components",
+    "--output-dir=$OutputDir",
+    "--output-filename=FastEmbedSub",
+    "--windows-icon-from-ico=assets/icon.png",
+    "--lto=yes"
+)
 
-nuitka "--standalone" `
-       "--msvc=latest" `
-       "--show-memory" `
-       "--show-progress" `
-       "--jobs=$env:NUMBER_OF_PROCESSORS" `
-       "--plugin-enable=pyside6" `
-       "--windows-disable-console" `
-       "--include-data-dir=assets=assets" `
-       "--include-data-dir=components=components" `
-       "--output-dir=$OutputDir" `
-       "--output-filename=FastEmbedSub" `
-       "--windows-icon-from-ico=assets/icon.png" `
-       "--nofollow-import-to=scipy" `
-       "--nofollow-import-to=numpy" `
-       "--nofollow-import-to=pyqt5" `
-       "--nofollow-import-to=matplotlib" `
-       "--nofollow-import-to=pandas" `
-       "--nofollow-import-to=PySide6.Qt3DAnimation" `
-       "--nofollow-import-to=PySide6.Qt3DCore" `
-       "--nofollow-import-to=PySide6.Qt3DExtras" `
-       "--nofollow-import-to=PySide6.Qt3DInput" `
-       "--nofollow-import-to=PySide6.Qt3DLogic" `
-       "--nofollow-import-to=PySide6.Qt3DRender" `
-       "--nofollow-import-to=PySide6.QtBluetooth" `
-       "--nofollow-import-to=PySide6.QtCharts" `
-       "--nofollow-import-to=PySide6.QtDataVisualization" `
-       "--nofollow-import-to=PySide6.QtDesigner" `
-       "--nofollow-import-to=PySide6.QtLocation" `
-       "--nofollow-import-to=PySide6.QtMultimedia" `
-       "--nofollow-import-to=PySide6.QtMultimediaWidgets" `
-       "--nofollow-import-to=PySide6.QtNfc" `
-       "--nofollow-import-to=PySide6.QtPdf" `
-       "--nofollow-import-to=PySide6.QtPdfWidgets" `
-       "--nofollow-import-to=PySide6.QtPositioning" `
-       "--nofollow-import-to=PySide6.QtQml" `
-       "--nofollow-import-to=PySide6.QtQuick" `
-       "--nofollow-import-to=PySide6.QtQuickWidgets" `
-       "--nofollow-import-to=PySide6.QtQuickControls2" `
-       "--nofollow-import-to=PySide6.QtRemoteObjects" `
-       "--nofollow-import-to=PySide6.QtSensors" `
-       "--nofollow-import-to=PySide6.QtSerialPort" `
-       "--nofollow-import-to=PySide6.QtSpatialAudio" `
-       "--nofollow-import-to=PySide6.QtSql" `
-       "--nofollow-import-to=PySide6.QtTest" `
-       "--nofollow-import-to=PySide6.QtUiTools" `
-       "--nofollow-import-to=PySide6.QtWebChannel" `
-       "--nofollow-import-to=PySide6.QtWebEngineCore" `
-       "--nofollow-import-to=PySide6.QtWebEngineWidgets" `
-       "--nofollow-import-to=PySide6.QtWebEngineQuick" `
-       "--nofollow-import-to=PySide6.QtWebSockets" `
-       "--follow-imports" `
-       "main.py"
+if (Get-Command "upx" -ErrorAction SilentlyContinue) {
+    Write-Host "检测到 UPX，已自动启用 Nuitka UPX 压缩，这会大幅缩减生成的 exe 和 dll 文件的体积。" -ForegroundColor Green
+    $NuitkaArgs += "--upx-binary=upx"
+} else {
+    Write-Host "未检测到 UPX。提示：如果想要将软件体积进一步缩减 ~50%，请下载 UPX (https://upx.github.io/) 并将其所在目录加入到系统环境变量 PATH 中。" -ForegroundColor Yellow
+}
 
-Write-Host "打包完成！生成的程序位于 $OutputDir/main.dist/" -ForegroundColor Cyan
+# 排除不需要的第三方库和 Qt 子模块，减少打包体积
+$Excludes = @(
+    "scipy", "numpy", "pyqt5", "matplotlib", "pandas",
+    "PySide6.Qt3DAnimation", "PySide6.Qt3DCore", "PySide6.Qt3DExtras", "PySide6.Qt3DInput",
+    "PySide6.Qt3DLogic", "PySide6.Qt3DRender", "PySide6.QtBluetooth", "PySide6.QtCharts",
+    "PySide6.QtDataVisualization", "PySide6.QtDesigner", "PySide6.QtLocation", "PySide6.QtMultimedia",
+    "PySide6.QtMultimediaWidgets", "PySide6.QtNfc", "PySide6.QtPdf", "PySide6.QtPdfWidgets",
+    "PySide6.QtPositioning", "PySide6.QtQml", "PySide6.QtQuick", "PySide6.QtQuickWidgets",
+    "PySide6.QtQuickControls2", "PySide6.QtRemoteObjects", "PySide6.QtSensors", "PySide6.QtSerialPort",
+    "PySide6.QtSpatialAudio", "PySide6.QtSql", "PySide6.QtTest", "PySide6.QtUiTools",
+    "PySide6.QtWebChannel", "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets",
+    "PySide6.QtWebEngineQuick", "PySide6.QtWebSockets", "PySide6.QtNetwork", "PySide6.QtOpenGL",
+    "PySide6.QtDBus", "PySide6.QtPrintSupport"
+)
+
+foreach ($Exc in $Excludes) {
+    $NuitkaArgs += "--nofollow-import-to=$Exc"
+}
+
+$NuitkaArgs += "--follow-imports"
+$NuitkaArgs += "main.py"
+
+Write-Host "开始运行 Nuitka 进行 Standalone 编译..." -ForegroundColor Cyan
+nuitka @NuitkaArgs
+
 
 # 4. 强制搬运资源文件夹 (保底方案)
-$DistPath = "$OutputDir/main.dist"
-# 如果你指定了 --output-filename=FastEmbedSub，路径可能是 "$OutputDir/FastEmbedSub.dist"
-if (-not (Test-Path $DistPath)) {yikaishi
+$DistPath = "$OutputDir/FastEmbedSub.dist"
+if (-not (Test-Path $DistPath)) {
     $DistPath = Get-ChildItem -Path "$OutputDir/*.dist" | Select-Object -ExpandProperty FullName -First 1
 }
+
+Write-Host "打包完成！生成的程序位于: $DistPath" -ForegroundColor Cyan
 
 Write-Host "`n正在执行资源物理搬运..." -ForegroundColor Yellow
 

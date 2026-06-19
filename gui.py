@@ -220,6 +220,13 @@ class MainUI(QMainWindow):
         self.engine.log_message.connect(self._on_log_message)
         self.task_widgets = {} # 存储队列UI卡片的字典
         self.log_history = [] # 缓存历史日志
+        self.log_buffer = []  # 日志缓冲区
+        
+        # 定时刷新日志，降低 GUI 重绘频率，防止高频日志导致卡死
+        self.log_timer = QTimer(self)
+        self.log_timer.timeout.connect(self.flush_log_buffer)
+        self.log_timer.start(150)  # 150ms 刷新间隔
+
 
         # ====== 导航与页面架构 ======
         self.navigation_interface = NavigationInterface(self, showMenuButton=True)
@@ -297,6 +304,7 @@ class MainUI(QMainWindow):
         if self.engine and self.engine.current_task:
             reply = self._MessageBox(self.t("info"), self.t("exit_confirm"), self)
             if reply.exec():
+                self.log_timer.stop()
                 self.engine.cancel_task(self.engine.current_task.task_id)
                 # 等待一会儿让进程完全退出 and 删除未完成文件
                 self.engine.process.waitForFinished(1000)
@@ -304,6 +312,7 @@ class MainUI(QMainWindow):
             else:
                 event.ignore()
         else:
+            self.log_timer.stop()
             event.accept()
         from qfluentwidgets import isDarkTheme
         if isDarkTheme():
@@ -655,6 +664,8 @@ class MainUI(QMainWindow):
         
         self.log_output = self._TextEdit()
         self.log_output.setReadOnly(True)
+        # 限制日志框最大行数，防止长时间运行内存占用过多及界面卡死
+        self.log_output.document().setMaximumBlockCount(2000)
         # 保持终端控制台风格
         self.log_output.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; font-family: Consolas;")
         layout.addWidget(self.log_output)
@@ -1090,5 +1101,15 @@ class MainUI(QMainWindow):
             
         styled = f'<span style="color: {color};">{message}</span>' if color else message
         self.log_history.append(styled)
+        self.log_buffer.append(styled)
+
+    def flush_log_buffer(self):
+        if not self.log_buffer:
+            return
+        
+        # 合并缓冲区日志，单次追加到 UI，显著降低 GUI 绘图开销
+        logs_to_append = "<br>".join(self.log_buffer)
+        self.log_buffer.clear()
+        
         if self.pages.get('log') is not None:
-            self.log_output.append(styled)
+            self.log_output.append(logs_to_append)
