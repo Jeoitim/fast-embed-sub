@@ -112,11 +112,11 @@ class MainUI(QMainWindow):
             onClick=lambda: self.switch_to_page('queue'), position=NavigationItemPosition.TOP
         )
         self.navigation_interface.addItem(
-            routeKey='log', icon=FluentIcon.DOCUMENT, text='日志',
+            routeKey='log', icon=FluentIcon.PRINT, text='日志',
             onClick=lambda: self.switch_to_page('log'), position=NavigationItemPosition.TOP
         )
         self.navigation_interface.addItem(
-            routeKey='theme', icon=FluentIcon.BRUSH, text='切换主题',
+            routeKey='theme', icon=FluentIcon.BRIGHTNESS, text='切换主题',
             onClick=self.toggle_theme, position=NavigationItemPosition.BOTTOM
         )
         self.navigation_interface.addItem(
