@@ -168,6 +168,16 @@ class TranscodeEngine(QObject):
                 self.task_status_changed.emit(task_id)
                 break
 
+    def clear_queue(self):
+        """清空所有任务。如果有正在运行的任务，取消并终止进程。"""
+        if self.current_task and self.current_task.status == "压制中":
+            self.process.kill()
+            self.current_task.status = "已取消"
+            self._delete_unfinished_file(self.current_task)
+        self.queue.clear()
+        self.current_task = None
+        self._log_to_window("<b>[队列]</b> 任务队列已清空", "orange")
+
     def _delete_unfinished_file(self, task):
         """删除未完成的文件"""
         if os.path.exists(task.output_path):
