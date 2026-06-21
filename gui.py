@@ -382,6 +382,15 @@ class MainUI(QMainWindow):
             for task_id in list(self.task_widgets.keys()):
                 self.update_task_ui(task_id)
                 
+        if 'preset_param' in self.pages:
+            self.navigation_interface.widget('preset_param').setText(self.t('preset_param'))
+            self.preset_param_title_label.setText(self.t('preset_param'))
+            sub_text = "针对当前选择的预设进行自定义参数微调（不懂调节参数保持默认即可）" if self.lang == 'zh' else "Fine-tune custom parameters for the selected preset (keep defaults if you are unsure)"
+            self.preset_param_subtitle_label.setText(sub_text)
+            self.btn_reset_params.setText("恢复默认" if self.lang == 'zh' else "Restore Defaults")
+            # Force parameters reload to translate parameter widgets
+            self.update_preset_desc()
+                
         if self.pages.get('about') is not None:
             self.lbl_info_title.setText(self.t('about_software'))
             self.lbl_author_label.setText(self.t('author'))
@@ -685,15 +694,15 @@ class MainUI(QMainWindow):
         title_container = QVBoxLayout()
         title_container.setSpacing(4)
         
-        title_label = self._TitleLabel(self.t("preset_param"))
-        title_label.setObjectName('appTitle')
+        self.preset_param_title_label = self._TitleLabel(self.t("preset_param"))
+        self.preset_param_title_label.setObjectName('appTitle')
         
         sub_text = "针对当前选择的预设进行自定义参数微调（不懂调节参数保持默认即可）" if self.lang == 'zh' else "Fine-tune custom parameters for the selected preset (keep defaults if you are unsure)"
-        subtitle_label = self._CaptionLabel(sub_text)
-        subtitle_label.setStyleSheet("color: #a0a0a0; font-size: 13px;")
+        self.preset_param_subtitle_label = self._CaptionLabel(sub_text)
+        self.preset_param_subtitle_label.setStyleSheet("color: #a0a0a0; font-size: 13px;")
         
-        title_container.addWidget(title_label)
-        title_container.addWidget(subtitle_label)
+        title_container.addWidget(self.preset_param_title_label)
+        title_container.addWidget(self.preset_param_subtitle_label)
         title_layout.addLayout(title_container)
         title_layout.addStretch()
         

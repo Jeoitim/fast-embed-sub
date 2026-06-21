@@ -237,7 +237,7 @@ class TranscodeEngine(QObject):
         base_vpy_path = os.path.join(assets_dir, "base.vpy")
         
         default_template = (
-            "# 基础 VapourSynth 脚本模板 - 用于传统 FFmpeg 预设支持 VS 几何与尺寸变换\n"
+            "# 基础 VapourSynth 脚本模板 - 支持去色带、锐化、降噪与升采样\n"
             "import sys\n"
             "import vapoursynth as vs\n"
             "core = vs.core\n\n"
@@ -256,16 +256,53 @@ class TranscodeEngine(QObject):
             "# 3. 垂直翻转\n"
             "if {flip_vertical}:\n"
             "    clip = core.std.FlipVertical(clip)\n\n"
-            "# 4. 尺寸缩放\n"
+            "# 4. 降噪 (Denoise)\n"
+            "denoise_opt = {denoise}\n"
+            "denoise_str = float({denoise_strength})\n"
+            "if \"mvtools\" in str(denoise_opt).lower():\n"
+            "    thsad_val = int(denoise_str * 200)\n"
+            "    sup = core.mv.Super(clip, pel=2, sharp=2)\n"
+            "    mv_b1 = core.mv.Analyse(sup, isb=True, delta=1, overlap=4)\n"
+            "    mv_f1 = core.mv.Analyse(sup, isb=False, delta=1, overlap=4)\n"
+            "    mv_b2 = core.mv.Analyse(sup, isb=True, delta=2, overlap=4)\n"
+            "    mv_f2 = core.mv.Analyse(sup, isb=False, delta=2, overlap=4)\n"
+            "    clip = core.mv.Degrain2(clip, super=sup, mvbw=mv_b1, mvfw=mv_f1, mvbw2=mv_b2, mvfw2=mv_f2, thsad=thsad_val)\n"
+            "elif \"bm3d\" in str(denoise_opt).lower():\n"
+            "    try:\n"
+            "        import mvsfunc\n"
+            "        clip = mvsfunc.BM3D(clip, sigma=denoise_str)\n"
+            "    except Exception:\n"
+            "        pass\n\n"
+            "# 5. 尺寸缩放与升采样 (Resize & Upsampling)\n"
             "scale = float({resize_scale})\n"
+            "super_res = {super_res}\n"
             "if scale != 1.0:\n"
             "    new_w = int(clip.width * scale)\n"
             "    new_h = int(clip.height * scale)\n"
-            "    # 确保是偶数\n"
             "    new_w = (new_w // 2) * 2\n"
             "    new_h = (new_h // 2) * 2\n"
-            "    clip = core.resize.Bicubic(clip, width=new_w, height=new_h)\n\n"
-            "# 5. 字幕渲染 (如果选择了字幕)\n"
+            "    if scale > 1.0 and \"znedi3\" in str(super_res).lower():\n"
+            "        try:\n"
+            "            # 2倍神经网络放大\n"
+            "            clip = core.znedi3.nnedi3(clip, field=0, dh=True)\n"
+            "            clip = core.std.Transpose(clip)\n"
+            "            clip = core.znedi3.nnedi3(clip, field=0, dh=True)\n"
+            "            clip = core.std.Transpose(clip)\n"
+            "            if scale != 2.0:\n"
+            "                clip = core.resize.Bicubic(clip, width=new_w, height=new_h)\n"
+            "        except Exception:\n"
+            "            clip = core.resize.Bicubic(clip, width=new_w, height=new_h)\n"
+            "    else:\n"
+            "        clip = core.resize.Bicubic(clip, width=new_w, height=new_h)\n\n"
+            "# 6. 锐化 (Sharpen)\n"
+            "if {sharpen}:\n"
+            "    sharpen_str = float({sharpen_strength})\n"
+            "    clip = core.cas.CAS(clip, sharpness=sharpen_str)\n\n"
+            "# 7. 去色带 (Deband)\n"
+            "if {deband}:\n"
+            "    deband_thr = int({deband_threshold})\n"
+            "    clip = core.neo_f3kdb.Deband(clip, range=16, y=deband_thr, cb=deband_thr, cr=deband_thr, grainy=0, grainc=0)\n\n"
+            "# 8. 字幕渲染 (如果选择了字幕)\n"
             "sub_path = \"{input_s}\"\n"
             "if sub_path and not sub_path.endswith(\"empty.srt\"):\n"
             "    try:\n"
@@ -276,7 +313,7 @@ class TranscodeEngine(QObject):
             "            clip = core.sub.TextFile(clip, file=sub_path)\n"
             "        except Exception:\n"
             "            pass\n\n"
-            "# 6. 输出\n"
+            "# 9. 输出\n"
             "clip.set_output()\n"
         )
         
@@ -344,7 +381,7 @@ class TranscodeEngine(QObject):
             
         temp_vpy_path = None
         
-        # 检测是否开启了 VScript 相关几何变换/缩放参数
+        # 检测是否开启了 VScript 相关几何变换/缩放/画质优化参数
         has_vpy_adjustments = False
         if param_values:
             flip_h = param_values.get("flip_horizontal", False)
@@ -353,7 +390,11 @@ class TranscodeEngine(QObject):
                 scale = float(param_values.get("resize_scale", 1.0))
             except (ValueError, TypeError):
                 scale = 1.0
-            if flip_h or flip_v or scale != 1.0:
+            deband = param_values.get("deband", False)
+            sharpen = param_values.get("sharpen", False)
+            denoise = param_values.get("denoise", "关闭")
+            
+            if flip_h or flip_v or scale != 1.0 or deband or sharpen or (denoise and denoise != "关闭"):
                 has_vpy_adjustments = True
 
         is_actually_vpy = preset_data["is_vpy"] or has_vpy_adjustments
@@ -374,6 +415,20 @@ class TranscodeEngine(QObject):
                 compiled_params["flip_vertical"] = False
             if "resize_scale" not in compiled_params:
                 compiled_params["resize_scale"] = "1.0"
+            if "super_res" not in compiled_params:
+                compiled_params["super_res"] = "常规双立方 (Bicubic)"
+            if "deband" not in compiled_params:
+                compiled_params["deband"] = False
+            if "deband_threshold" not in compiled_params:
+                compiled_params["deband_threshold"] = 64
+            if "denoise" not in compiled_params:
+                compiled_params["denoise"] = "关闭"
+            if "denoise_strength" not in compiled_params:
+                compiled_params["denoise_strength"] = "1.5"
+            if "sharpen" not in compiled_params:
+                compiled_params["sharpen"] = False
+            if "sharpen_strength" not in compiled_params:
+                compiled_params["sharpen_strength"] = "0.5"
                 
             temp_vpy_path = self.compile_and_register_vpy(vpy_template, compiled_params, video, sub, preset_name)
             

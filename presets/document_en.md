@@ -72,9 +72,10 @@ Parameters declared in this block are rendered dynamically in the UI. Supported 
   * `text` (alias `input`, `inputbox`): Single-line text input field (rendered as a LineEdit).
   * Also supports basic atom widgets: `float` (DoubleSpinBox), `integer` (SpinBox), and `bool` (CheckBox).
 * `default`: Default value.
-* `range`: Bounds array `[min, max]` (for `float` and `integer`).
-* `decimals`: Decimal places (for `float`).
-* `options`: List of select choices (for `select`), e.g., `["Option1", "Option2"]`.
+* `range`: Bounds array `[min, max]` (applicable to `slider`, `float`, and `integer`).
+* `step`: Step size (applicable to `slider`). Can be a float (e.g. `0.1`, `0.05`) or an integer (e.g. `8`). When specified, dragging the slider will snap precisely to multiples of the step (e.g., with range `[16, 256]` and step `8`, dragging snaps to `16, 24, 32...` rather than increments of `1`, avoiding arbitrary values).
+* `decimals`: Decimal places (applicable to floating-point `slider` and `float` widgets).
+* `options`: List of select choices (applicable to `select` and fixed-ticks `slider`), e.g., `["Option1", "Option2"]`.
 * `group`: Category name. Widgets with the same group are grouped inside a bordered Fluent card.
 * `order`: Placement ordering within the group.
 * `tooltip`: Description displayed on mouse hover.

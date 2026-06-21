@@ -72,9 +72,10 @@ $vpy-end
   * `text`（别名 `input`、`inputbox`）：单行文本输入框（渲染为 LineEdit）。
   * 另兼容基础原子类型：`float`（DoubleSpinBox 微调框）、`integer`（SpinBox 微调框）、`bool`（CheckBox 开关）。
 * `default`：默认值。
-* `range`：取值范围（仅适用于 `float` 和 `integer`），格式如 `[最小值, 最大值]`。
-* `decimals`：小数点保留位数（仅适用于 `float`）。
-* `options`：下拉列表可选项（仅适用于 `select`），格式如 `["Option1", "Option2"]`。
+* `range`：取值范围（适用于 `slider`、`float` 和 `integer`），格式如 `[最小值, 最大值]`。
+* `step`：步进/步长值（适用于 `slider`）。可以为浮点数（如 `0.1`、`0.05`）或整数（如 `8`）。设置后，拖动滑动条时数值会精确对齐并吸附到步长值的整数倍（例如，范围 `[16, 256]`，步进 `8`，拖动时会自动吸附在 `16, 24, 32...` 等刻度上，避免显示任意零散值）。
+* `decimals`：小数点保留位数（适用于浮点数 `slider` 及 `float` 微调框）。
+* `options`：下拉列表可选项（适用于 `select` 以及固定刻度模式下的 `slider`），格式如 `["Option1", "Option2"]`。
 * `group`：界面分组卡片名称（同名分组会打包在一个带边框的 Fluent 卡片中）。
 * `order`：在分组卡片中的显示顺序。
 * `tooltip`：鼠标悬停在控件上时的气泡提示信息。

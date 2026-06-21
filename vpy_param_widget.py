@@ -29,6 +29,11 @@ class SliderWithValue(QWidget):
         self._float_range = None
         self._float_step = None
         
+        self._is_int_step = False
+        self._int_range = None
+        self._int_step = None
+        self._is_setting_value = False
+        
     def setDiscreteOptions(self, options):
         self._options = [str(o) for o in options]
         self.slider.setRange(0, len(self._options) - 1)
@@ -43,25 +48,40 @@ class SliderWithValue(QWidget):
         self.slider.setSingleStep(1)
         
     def setIntRange(self, min_val, max_val, step=1):
-        self.slider.setRange(min_val, max_val)
-        self.slider.setSingleStep(step)
+        if step > 1:
+            self._is_int_step = True
+            self._int_range = (min_val, max_val)
+            self._int_step = step
+            steps = int((max_val - min_val) // step)
+            self.slider.setRange(0, steps)
+            self.slider.setSingleStep(1)
+        else:
+            self.slider.setRange(min_val, max_val)
+            self.slider.setSingleStep(1)
         
     def setValue(self, value):
-        self.slider.blockSignals(True)
-        if self._options is not None:
-            val_str = str(value)
-            if val_str in self._options:
-                self.slider.setValue(self._options.index(val_str))
+        self._is_setting_value = True
+        try:
+            if self._options is not None:
+                val_str = str(value)
+                if val_str in self._options:
+                    self.slider.setValue(self._options.index(val_str))
+                else:
+                    self.slider.setValue(0)
+            elif self._is_float:
+                min_val, max_val = self._float_range
+                val = float(value)
+                steps = int(round((val - min_val) / self._float_step))
+                self.slider.setValue(steps)
+            elif self._is_int_step:
+                min_val, max_val = self._int_range
+                val = int(value)
+                steps = int((val - min_val) // self._int_step)
+                self.slider.setValue(steps)
             else:
-                self.slider.setValue(0)
-        elif self._is_float:
-            min_val, max_val = self._float_range
-            val = float(value)
-            steps = int(round((val - min_val) / self._float_step))
-            self.slider.setValue(steps)
-        else:
-            self.slider.setValue(int(value))
-        self.slider.blockSignals(False)
+                self.slider.setValue(int(value))
+        finally:
+            self._is_setting_value = False
         self.update_label()
         
     def value(self):
@@ -80,10 +100,15 @@ class SliderWithValue(QWidget):
             step_str = str(self._float_step)
             decimals = len(step_str.split('.')[1]) if '.' in step_str else 2
             return round(calc, decimals)
+        elif self._is_int_step:
+            min_val, max_val = self._int_range
+            return min_val + self.slider.value() * self._int_step
         else:
             return self.slider.value()
             
     def on_value_changed(self, val):
+        if self._is_setting_value:
+            return
         self.update_label()
         self.valueChanged.emit()
         

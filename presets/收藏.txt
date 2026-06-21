@@ -22,11 +22,78 @@ parameters:
     name: 画面缩放倍数
     type: slider
     default: "1.0"
-    options: ["1.0", "0.75", "0.5", "0.25"]
+    range: [0.1, 2.0]
+    step: 0.05
+    decimals: 2
     group: "尺寸调整"
     order: 3
-    tooltip: "通过滑块调整画面分辨率比例（固定刻度）"
+    tooltip: "通过滑块调整画面分辨率比例（范围 0.1 - 2.0，支持神经网络升采样放大与常规降采样）"
 
+  - id: super_res
+    name: 升采样算法
+    type: select
+    default: "常规双立方 (Bicubic)"
+    options: ["常规双立方 (Bicubic)", "ZNEDI3 (神经网络)"]
+    group: "尺寸调整"
+    order: 4
+    tooltip: "当画面放大时使用的插值算法，ZNEDI3 使用神经网络能够插值出极其锐利细腻的边缘"
+
+  - id: deband
+    name: 开启去色带 (Deband)
+    type: bool
+    default: false
+    group: "画质优化"
+    order: 5
+    tooltip: "是否开启去色带滤镜（使用 neo_f3kdb，平滑色彩渐变，消除断层）"
+
+  - id: deband_threshold
+    name: 去色带强度
+    type: slider
+    default: 64
+    range: [16, 256]
+    step: 8
+    group: "画质优化"
+    order: 6
+    tooltip: "去色带强度（范围 16 - 256，默认 64）。强度值越高，色彩越平滑，但也更容易使微小纹理模糊"
+
+  - id: denoise
+    name: 自适应降噪
+    type: select
+    default: "关闭"
+    options: ["关闭", "MVTools (运动自适应)", "BM3D (高质量空间降噪)"]
+    group: "画质优化"
+    order: 7
+    tooltip: "对视频进行降噪处理，推荐运动场景用 MVTools，静态或高质量用 BM3D"
+
+  - id: denoise_strength
+    name: 降噪强度
+    type: slider
+    default: "1.5"
+    range: [0.1, 5.0]
+    step: 0.1
+    decimals: 1
+    group: "画质优化"
+    order: 8
+    tooltip: "降噪强度（范围 0.1 - 5.0，默认 1.5）。值越大噪点去除越干净，但过大可能会有涂抹感 (BM3D 映射为 sigma，MVTools 映射为 thsad)"
+
+  - id: sharpen
+    name: 开启自适应锐化
+    type: bool
+    default: false
+    group: "画质优化"
+    order: 9
+    tooltip: "是否开启自适应锐化（使用 Contrast Adaptive Sharpening，提升画面细节清晰度）"
+
+  - id: sharpen_strength
+    name: 锐化强度
+    type: slider
+    default: "0.5"
+    range: [0.0, 1.0]
+    step: 0.05
+    decimals: 2
+    group: "画质优化"
+    order: 10
+    tooltip: "CAS 锐化强度（范围 0.0 - 1.0，默认 0.5）。值越大图像越清晰，但过高可能产生白边"
 locales:
   en:
     name: "Archive"
@@ -43,7 +110,35 @@ locales:
       resize_scale:
         name: "Resize Scale"
         group: "Resize"
-        tooltip: "Resize the video resolution scale with the slider (discrete steps)"
+        tooltip: "Resize the video resolution scale with the slider (0.1 to 2.0)"
+      super_res:
+        name: "Upsampling Algorithm"
+        group: "Resize"
+        tooltip: "Interpolation algorithm used for upscaling. ZNEDI3 uses neural network."
+      deband:
+        name: "Enable Debanding (Deband)"
+        group: "Enhance"
+        tooltip: "Enable debanding filter using neo_f3kdb to smooth gradients"
+      deband_threshold:
+        name: "Deband Threshold"
+        group: "Enhance"
+        tooltip: "Higher values are smoother but can blur fine textures (16 to 256)"
+      denoise:
+        name: "Denoise Method"
+        group: "Enhance"
+        tooltip: "Apply noise reduction. Recommend MVTools for motion, BM3D for high quality"
+      denoise_strength:
+        name: "Denoise Strength"
+        group: "Enhance"
+        tooltip: "Higher values remove more noise but can blur the image (0.1 to 5.0)"
+      sharpen:
+        name: "Enable Sharpening"
+        group: "Enhance"
+        tooltip: "Enable Contrast Adaptive Sharpening (CAS) to enhance detail clarity"
+      sharpen_strength:
+        name: "Sharpen Strength"
+        group: "Enhance"
+        tooltip: "CAS sharpening strength (0.0 to 1.0)"
 $custom-end
 
 $vpy-start
@@ -51,7 +146,7 @@ import sys
 import vapoursynth as vs
 core = vs.core
 
-# 1. 载入视频 (尝试 ffms2 或 lsmash)
+# 1. 载入视频 (优先尝试 ffms2 或 lsmash)
 try:
     clip = core.ffms2.Source(source="{input_v}")
 except AttributeError:
@@ -69,17 +164,60 @@ if {flip_horizontal}:
 if {flip_vertical}:
     clip = core.std.FlipVertical(clip)
 
-# 4. 尺寸缩放
+# 4. 降噪 (Denoise)
+denoise_opt = {denoise}
+denoise_str = float({denoise_strength})
+if "mvtools" in str(denoise_opt).lower():
+    thsad_val = int(denoise_str * 200)
+    sup = core.mv.Super(clip, pel=2, sharp=2)
+    mv_b1 = core.mv.Analyse(sup, isb=True, delta=1, overlap=4)
+    mv_f1 = core.mv.Analyse(sup, isb=False, delta=1, overlap=4)
+    mv_b2 = core.mv.Analyse(sup, isb=True, delta=2, overlap=4)
+    mv_f2 = core.mv.Analyse(sup, isb=False, delta=2, overlap=4)
+    clip = core.mv.Degrain2(clip, super=sup, mvbw=mv_b1, mvfw=mv_f1, mvbw2=mv_b2, mvfw2=mv_f2, thsad=thsad_val)
+elif "bm3d" in str(denoise_opt).lower():
+    try:
+        import mvsfunc
+        clip = mvsfunc.BM3D(clip, sigma=denoise_str)
+    except Exception:
+        pass
+
+# 5. 尺寸缩放与升采样 (Resize & Upsampling)
 scale = float({resize_scale})
+super_res = {super_res}
 if scale != 1.0:
     new_w = int(clip.width * scale)
     new_h = int(clip.height * scale)
-    # 确保是偶数
     new_w = (new_w // 2) * 2
     new_h = (new_h // 2) * 2
-    clip = core.resize.Bicubic(clip, width=new_w, height=new_h)
+    
+    if scale > 1.0 and "znedi3" in str(super_res).lower():
+        try:
+            # 2倍神经网络放大
+            clip = core.znedi3.nnedi3(clip, field=0, dh=True)
+            clip = core.std.Transpose(clip)
+            clip = core.znedi3.nnedi3(clip, field=0, dh=True)
+            clip = core.std.Transpose(clip)
+            
+            # 如果缩放比例不刚好是 2.0，再微调缩放到目标尺寸
+            if scale != 2.0:
+                clip = core.resize.Bicubic(clip, width=new_w, height=new_h)
+        except Exception:
+            clip = core.resize.Bicubic(clip, width=new_w, height=new_h)
+    else:
+        clip = core.resize.Bicubic(clip, width=new_w, height=new_h)
 
-# 5. 字幕渲染 (如果选择了字幕)
+# 6. 锐化 (Sharpen)
+if {sharpen}:
+    sharpen_str = float({sharpen_strength})
+    clip = core.cas.CAS(clip, sharpness=sharpen_str)
+
+# 7. 去色带 (Deband)
+if {deband}:
+    deband_thr = int({deband_threshold})
+    clip = core.neo_f3kdb.Deband(clip, range=16, y=deband_thr, cb=deband_thr, cr=deband_thr, grainy=0, grainc=0)
+
+# 8. 字幕渲染 (如果选择了字幕)
 sub_path = "{input_s}"
 if sub_path and not sub_path.endswith("empty.srt"):
     try:
@@ -91,7 +229,7 @@ if sub_path and not sub_path.endswith("empty.srt"):
         except Exception:
             pass
 
-# 6. 输出
+# 9. 输出
 clip.set_output()
 $vpy-end
 
