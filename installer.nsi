@@ -11,6 +11,8 @@
   !define APP_DIST_DIR "outputs\main.dist"
 !endif
 
+Name "${APP_NAME}"
+
 # Include Modern UI
 !include "MUI2.nsh"
 
