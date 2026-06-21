@@ -972,10 +972,31 @@ class MainUI(QMainWindow):
                 translated_desc = desc
             self.preset_desc.setText(f"{self.t('preset_desc_prefix')}{translated_desc}")
             
-            # 格式选择框状态
-            if cmd_template and re.search(r'\{format:([^}]+)\}', cmd_template):
+            # 格式选择框状态与自定义格式显示
+            format_match = re.search(r'\{format:([^}]+)\}', cmd_template) if cmd_template else None
+            if format_match:
+                custom_format = format_match.group(1)
+                self.format_combo.blockSignals(True)
+                # 清理并添加标准格式 + 自定义格式（如果不在标准格式中）
+                self.format_combo.clear()
+                standard_formats = ['mp4', 'mkv', 'mov']
+                self.format_combo.addItems(standard_formats)
+                if custom_format not in standard_formats:
+                    self.format_combo.addItem(custom_format)
+                self.format_combo.setCurrentText(custom_format)
+                self.format_combo.blockSignals(False)
                 self.format_combo.setEnabled(False)
             else:
+                # 恢复标准格式列表，并尽可能保留先前的选择
+                current_format = self.format_combo.currentText()
+                standard_formats = ['mp4', 'mkv', 'mov']
+                preserved_format = current_format if current_format in standard_formats else 'mp4'
+                
+                self.format_combo.blockSignals(True)
+                self.format_combo.clear()
+                self.format_combo.addItems(standard_formats)
+                self.format_combo.setCurrentText(preserved_format)
+                self.format_combo.blockSignals(False)
                 self.format_combo.setEnabled(True)
                 
             # 动态加载并确保参数调节 sidebar 常驻

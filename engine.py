@@ -349,11 +349,11 @@ class TranscodeEngine(QObject):
         else:
             final_cmd = preset_data["cmd_template"]
             
-        output_path = os.path.join(output_dir, f"{filename}.{format_val}")
-        
         format_match = re.search(r'\{format:([^}]+)\}', final_cmd)
         if format_match:
             format_val = format_match.group(1)
+            
+        output_path = os.path.join(output_dir, f"{filename}.{format_val}")
         
         final_cmd = re.sub(r'\{format:([^}]+)\}', r'\1', final_cmd)
         
