@@ -59,6 +59,7 @@ TRANSLATIONS = {
         'pyside_desc': '• <b>PySide6</b>: Qt 6 官方 Python 绑定',
         'pysf_desc': '• <b>PySide6-Fluent-Widgets</b>: 微软 Fluent 设计风格组件库',
         'ffmpeg_desc': '• <b>FFmpeg 项目</b>: 极速且强大的音视频核心编解码库',
+        'vapoursynth_desc': '• <b>VapourSynth</b>: 现代开源视频处理与滤镜框架项目',
         'official_link': '官方链接',
         'special_thanks': '特别鸣谢：感谢所有开源社区贡献者对本项目及依赖库的支持。',
         'exit_confirm': '当前有任务正在压制，确定要退出并取消任务吗？',
@@ -119,6 +120,7 @@ TRANSLATIONS = {
         'pyside_desc': '• <b>PySide6</b>: Official Python bindings for Qt 6',
         'pysf_desc': '• <b>PySide6-Fluent-Widgets</b>: Fluent design widgets library for PySide6',
         'ffmpeg_desc': '• <b>FFmpeg Project</b>: Fast and powerful audio/video codec library',
+        'vapoursynth_desc': '• <b>VapourSynth</b>: A modern open-source video processing and filtering application/framework',
         'official_link': 'Official Link',
         'special_thanks': 'Special thanks to all open-source community contributors for supporting this project and its dependencies.',
         'exit_confirm': 'A task is currently encoding. Are you sure you want to exit and cancel it?',
@@ -882,6 +884,14 @@ class MainUI(QMainWindow):
         self.btn_ffmpeg_link = self._HyperlinkButton("https://ffmpeg.org/", self.t("official_link"), self)
         ffmpeg_layout.addWidget(self.btn_ffmpeg_link)
         deps_layout.addLayout(ffmpeg_layout)
+        
+        vs_layout = QHBoxLayout()
+        self.lbl_vs_desc = self._Label(self.t("vapoursynth_desc"))
+        vs_layout.addWidget(self.lbl_vs_desc)
+        vs_layout.addStretch()
+        self.btn_vs_link = self._HyperlinkButton("https://www.vapoursynth.com/", self.t("official_link"), self)
+        vs_layout.addWidget(self.btn_vs_link)
+        deps_layout.addLayout(vs_layout)
         
         self.lbl_special_thanks = self._Label(self.t("special_thanks"))
         deps_layout.addWidget(self.lbl_special_thanks)

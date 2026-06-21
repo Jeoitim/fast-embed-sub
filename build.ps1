@@ -1,4 +1,4 @@
-# 0. 自动生成 icon.ico 文件 (用于 Nuitka 和 NSIS 图标)
+﻿# 0. 自动生成 icon.ico 文件 (用于 Nuitka 和 NSIS 图标)
 $IcoFile = "assets/icon.ico"
 $PngFile = "assets/icon.png"
 if (Test-Path $PngFile) {
@@ -115,6 +115,43 @@ foreach ($Folder in $FoldersToCopy) {
     } else {
         Write-Host " [!] 警告: 未找到源目录 $Folder" -ForegroundColor Red
     }
+}
+
+# 5. 优化打包运行库 (删除冗余开发文件，缩减安装包体积)
+Write-Host "`n正在优化打包运行库 (删除冗余开发文件)..." -ForegroundColor Yellow
+$ComponentsDist = Join-Path $DistPath "components"
+if (Test-Path $ComponentsDist) {
+    # 删除所有 .pdb 调试符号文件
+    Get-ChildItem -Path $ComponentsDist -Recurse -Filter "*.pdb" | Remove-Item -Force
+    Write-Host " [OK] 已清理所有 .pdb 调试符号文件" -ForegroundColor Green
+
+    # 删除 VapourSynth 中的 C/C++ 开发头文件 include 目录和 pkgconfig 编译配置目录
+    $VSInclude = Join-Path $ComponentsDist "vapoursynth/include"
+    if (Test-Path $VSInclude) {
+        Remove-Item -Path $VSInclude -Recurse -Force
+        Write-Host " [OK] 已清理开发头文件 (include)" -ForegroundColor Green
+    }
+    $VSPkgConfig = Join-Path $ComponentsDist "vapoursynth/pkgconfig"
+    if (Test-Path $VSPkgConfig) {
+        Remove-Item -Path $VSPkgConfig -Recurse -Force
+        Write-Host " [OK] 已清理编译配置 (pkgconfig)" -ForegroundColor Green
+    }
+
+    # 删除 get-pip.py 脚本 (只在搭建环境时需要)
+    $VSGetPip = Join-Path $ComponentsDist "vapoursynth/get-pip.py"
+    if (Test-Path $VSGetPip) {
+        Remove-Item -Path $VSGetPip -Force
+        Write-Host " [OK] 已清理 get-pip.py 脚本" -ForegroundColor Green
+    }
+
+    # 删除所有的 *.dist-info 和 *.egg-info 文件夹 (运行时不需要的 pip 元数据)
+    Get-ChildItem -Path $ComponentsDist -Recurse -Directory -Filter "*.dist-info" | Remove-Item -Recurse -Force
+    Get-ChildItem -Path $ComponentsDist -Recurse -Directory -Filter "*.egg-info" | Remove-Item -Recurse -Force
+    Write-Host " [OK] 已清理所有冗余的 .dist-info 和 .egg-info 元数据目录" -ForegroundColor Green
+
+    # 清理所有的 __pycache__ 缓存目录，进一步压缩包体积
+    Get-ChildItem -Path $ComponentsDist -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force
+    Write-Host " [OK] 已清理所有的 __pycache__ 缓存目录" -ForegroundColor Green
 }
 
 # 6. UPX 后压缩（Nuitka 4.x 不再内置 UPX 支持，改为构建后手动压缩）

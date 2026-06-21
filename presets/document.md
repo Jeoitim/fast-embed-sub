@@ -184,3 +184,62 @@ $vpy-end
 # vspipe 解码为 y4m 流，并通过管道直接传输给 FFmpeg 压制，原视频音频无损直通
 components/vspipe.exe --y4m "{vpy_path}" - | components/ffmpeg.exe -y -i - -i "{input_v}" -map 0:v -map 1:a? -c:v libx264 -preset fast -crf 20 -c:a copy "{output_dir}/{filename}.{format}"
 ```
+
+---
+
+## 3. 字幕渲染引擎选择与配置
+
+为了提供最好的字幕兼容性，软件的 VvapourSynth 运行环境内置了三种字幕渲染组件（位于 `components/vapoursynth/plugins/` 目录中）：
+1. **Subtext (subtext.dll)**: 默认的字幕读取与渲染引擎，对 SRT 字幕和标准 ASS 支持良好，解析速度快。
+2. **AssRender (assrender.dll)**: 高性能的 Libass 渲染器，对复杂的特效 ASS 字幕具有极高的解析兼容性与绘制效率。
+3. **VSFilterMod (VSFilterMod.dll)**: 经典的 VSFilter 增强版，支持 Windows 原生 GDI 渲染，对极少数古老且依赖特定特效标记的 ASS 字幕具有不可替代的还原度。
+
+### 3.1 在预设中加入引擎切换选择卡
+在 YAML 区块的 `parameters` 中声明一个下拉选择控件（如 `sub_engine`）：
+```yaml
+  - id: sub_engine
+    name: 字幕渲染引擎
+    type: select
+    default: "Subtext (默认)"
+    options: ["Subtext (默认)", "AssRender (高性能)", "VSFilterMod (兼容性)"]
+    group: "常规设置"
+    order: 0
+    tooltip: "选择用于载入并绘制字幕的引擎后端"
+```
+
+### 3.2 在 Vpy 脚本模板中实现动态分流渲染
+在 `$vpy-start` 至 `$vpy-end` 块中，可以使用以下动态分流代码来根据用户的选择载入对应的渲染引擎：
+```python
+# 字幕渲染分流逻辑
+sub_path = "{input_s}"
+if sub_path and not sub_path.endswith("empty.srt"):
+    engine_choice = {sub_engine}.lower() if {sub_engine} else "subtext"
+    
+    # 辅助装载函数：当 DLL 尚未加载时，从组件目录或 plugins 中自动寻路并加载
+    def render_with_dll(dll_filename, call_func):
+        import os
+        dll_path = os.path.join(r"{components_dir}", "vapoursynth", "plugins", dll_filename)
+        if not os.path.exists(dll_path):
+            dll_path = os.path.join(r"{components_dir}", "vapoursynth", "plugins", "vsrepo", dll_filename)
+        if not os.path.exists(dll_path):
+            raise FileNotFoundError(f"缺少必要的字幕渲染插件: {dll_filename}")
+        core.std.LoadPlugin(path=dll_path)
+        return call_func()
+
+    if "assrender" in engine_choice:
+        try:
+            clip = core.assrender.Render(clip, file=sub_path)
+        except AttributeError:
+            clip = render_with_dll("assrender.dll", lambda: core.assrender.Render(clip, file=sub_path))
+    elif "vsfiltermod" in engine_choice:
+        try:
+            clip = core.vsfm.TextSubMod(clip, file=sub_path)
+        except AttributeError:
+            clip = render_with_dll("VSFilterMod.dll", lambda: core.vsfm.TextSubMod(clip, file=sub_path))
+    else: # 默认使用 Subtext
+        try:
+            clip = core.sub.TextFile(clip, file=sub_path)
+        except AttributeError:
+            clip = render_with_dll("subtext.dll", lambda: core.sub.TextFile(clip, file=sub_path))
+```
+通过这种分流设计，您的预设可以在保留高性能的同时，让用户能够自主为复杂特效字幕更换渲染后端，解决花屏或特效字形缺失等问题。

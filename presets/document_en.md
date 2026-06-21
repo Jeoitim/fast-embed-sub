@@ -181,3 +181,62 @@ $vpy-end
 # Stream decoded frames from vspipe to FFmpeg over pipe, coping audio stream
 components/vspipe.exe --y4m "{vpy_path}" - | components/ffmpeg.exe -y -i - -i "{input_v}" -map 0:v -map 1:a? -c:v libx264 -preset fast -crf 20 -c:a copy "{output_dir}/{filename}.{format}"
 ```
+
+---
+
+## 3. Subtitle Rendering Engine Selection and Routing
+
+To ensure the best subtitle rendering compatibility, the VvapourSynth portable runtime includes three built-in rendering plugins (located inside `components/vapoursynth/plugins/`):
+1. **Subtext (subtext.dll)**: The default subtitle loader and renderer. Good for SRT files and standard ASS styles, with high parsing speeds.
+2. **AssRender (assrender.dll)**: An optimized Libass renderer, providing excellent compatibility and performance for complex ASS styles/typesetting.
+3. **VSFilterMod (VSFilterMod.dll)**: An enhanced classic VSFilter module utilizing Windows GDI rendering. It is crucial for older ASS subtitle files containing specific legacy styling tags.
+
+### 3.1 Adding Engine Dropdown parameter in YAML
+Declare a dropdown parameter under the `parameters` block:
+```yaml
+  - id: sub_engine
+    name: Subtitle Engine
+    type: select
+    default: "Subtext (Default)"
+    options: ["Subtext (Default)", "AssRender (High Performance)", "VSFilterMod (Compatibility)"]
+    group: "General"
+    order: 0
+    tooltip: "Select rendering engine backend for subtitles"
+```
+
+### 3.2 Handling Dynamic Routing in Vpy Script
+Within the `$vpy-start` and `$vpy-end` blocks, use this dispatch logic to parse the user selection and route to the correct plugin:
+```python
+# Subtitle rendering dispatch logic
+sub_path = "{input_s}"
+if sub_path and not sub_path.endswith("empty.srt"):
+    engine_choice = {sub_engine}.lower() if {sub_engine} else "subtext"
+    
+    # Helper loader: dynamically search and load the plugin DLL if not pre-loaded
+    def render_with_dll(dll_filename, call_func):
+        import os
+        dll_path = os.path.join(r"{components_dir}", "vapoursynth", "plugins", dll_filename)
+        if not os.path.exists(dll_path):
+            dll_path = os.path.join(r"{components_dir}", "vapoursynth", "plugins", "vsrepo", dll_filename)
+        if not os.path.exists(dll_path):
+            raise FileNotFoundError(f"Missing subtitle plugin: {dll_filename}")
+        core.std.LoadPlugin(path=dll_path)
+        return call_func()
+
+    if "assrender" in engine_choice:
+        try:
+            clip = core.assrender.Render(clip, file=sub_path)
+        except AttributeError:
+            clip = render_with_dll("assrender.dll", lambda: core.assrender.Render(clip, file=sub_path))
+    elif "vsfiltermod" in engine_choice:
+        try:
+            clip = core.vsfm.TextSubMod(clip, file=sub_path)
+        except AttributeError:
+            clip = render_with_dll("VSFilterMod.dll", lambda: core.vsfm.TextSubMod(clip, file=sub_path))
+    else: # Default: Subtext
+        try:
+            clip = core.sub.TextFile(clip, file=sub_path)
+        except AttributeError:
+            clip = render_with_dll("subtext.dll", lambda: core.sub.TextFile(clip, file=sub_path))
+```
+Using this approach, your custom preset template remains clean and powerful while giving end users the choice to swap subtitle renderers when encountering formatting discrepancies.

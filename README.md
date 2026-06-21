@@ -95,9 +95,13 @@ VapourSynth 是基于 Python 的强大视频处理框架，在去色带、降噪
    python main.py
    ```
 
-### 4. 编译打包说明 (`build.ps1`)
-项目根目录下提供了用于编译打包的 PowerShell 脚本 [build.ps1](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/build.ps1)。
-该脚本会：
-1. 自动调用 Nuitka 执行高性能 C 级编译打包。
-2. 自动拷贝必要的资源目录（如 `assets/`、`presets/` 等）至 `dist/` 文件夹下。
-3. **UPX 后压缩**：由于 Nuitka 4.x 不再内置 UPX 支持，脚本在打包完成后，会自动扫描 `dist/` 文件夹并调用系统 UPX 压缩除 `ffmpeg.exe` 之外的可执行文件与 DLL 动态链接库，大幅缩减发布包体积。
+### 4. 编译打包与安装包制作说明 (`build.ps1`)
+项目根目录下提供了用于编译打包和安装包制作的 PowerShell 脚本 [build.ps1](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/build.ps1)。
+运行该脚本会全自动执行以下流程：
+1. **自动生成图标**：读取 `assets/icon.png` 自动转换为支持 Windows 的多尺寸 `assets/icon.ico` 图标。
+2. **Nuitka STANDALONE 编译**：自动调用 `.venv` 环境，将 Python 代码编译为高性能的 Windows 独立绿色包，生成在 `outputs/main.dist/` 中。
+3. **资源及依赖同步**：物理复制 `components/`、`presets/` 和 `assets/` 文件夹至打包目录。
+4. **运行库优化 (体积瘦身)**：自动分析打包后的 `components` 运行库目录，删除不必要的 C/C++ 头文件 (`include/`)、`.pdb` 调试文件、`get-pip.py` 脚本以及所有的 `*.dist-info`/`*.egg-info` 元数据与 `__pycache__` 缓存，大幅减少文件个数并节省 ~25MB 体积。
+5. **安全 UPX 压缩**：调用系统的 UPX 压缩打包目录下的二进制文件。**脚本自动跳过了 `components/` 目录**（包含 FFmpeg 和 VapourSynth 的 DLL/EXE 插件），防止对外部运行库造成损坏，仅压缩主程序本身。
+6. **NSIS 安装包制作**：自动检测系统中的 `makensis` 编译器，读取 [installer.nsi](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/installer.nsi) 配置文件，自动将精简优化后的绿色包编译为一键安装包：`outputs/FastEmbedSub_v1.0.0_Setup.exe` (约 206MB)。
+   * 安装包自带桌面与开始菜单快捷方式、卸载项注册，并具备安装路径注册表匹配与主程序验证的多重安全检查，防止卸载时误删用户其他文件。
