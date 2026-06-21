@@ -223,11 +223,20 @@ if sub_path and not sub_path.endswith("empty.srt"):
     try:
         clip = core.sub.TextFile(clip, file=sub_path)
     except AttributeError:
+        import os
+        dll_path = r"{components_dir}/vapoursynth/plugins/subtext.dll"
+        if not os.path.exists(dll_path):
+            raise FileNotFoundError(f"字幕渲染失败：缺少必要的字幕插件 (dll_path={dll_path})。请检查 components 目录是否完整。")
         try:
-            core.std.LoadPlugin(path=r"{components_dir}/vapoursynth/plugins/subtext.dll")
+            core.std.LoadPlugin(path=dll_path)
+        except Exception as e:
+            raise RuntimeError(f"字幕渲染失败：加载字幕插件失败 ({dll_path})，错误信息: {e}")
+        try:
             clip = core.sub.TextFile(clip, file=sub_path)
-        except Exception:
-            pass
+        except Exception as e:
+            raise RuntimeError(f"字幕渲染失败：解析或载入字幕文件 '{sub_path}' 出错: {e}")
+    except Exception as e:
+        raise RuntimeError(f"字幕渲染失败：解析或载入字幕文件 '{sub_path}' 出错: {e}")
 
 # 9. 输出
 clip.set_output()
