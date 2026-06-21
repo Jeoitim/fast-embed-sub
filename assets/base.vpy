@@ -77,7 +77,7 @@ if {deband}:
 # 8. 字幕渲染 (如果选择了字幕)
 sub_path = "{input_s}"
 if sub_path and not sub_path.endswith("empty.srt"):
-    sub_engine = "{sub_engine}".lower() if "{sub_engine}" else "subtext"
+    sub_engine = {sub_engine}.lower() if {sub_engine} else "subtext"
     def load_dll_and_call(dll_filename, call_func):
         import os
         dll_path = os.path.join(r"{components_dir}", "vapoursynth", "plugins", "vsrepo", dll_filename)

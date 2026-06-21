@@ -2,6 +2,14 @@
 
 $custom-start
 parameters:
+  - id: sub_engine
+    name: 字幕渲染引擎
+    type: select
+    default: "Subtext (默认)"
+    options: ["Subtext (默认)", "AssRender (高性能)", "VSFilterMod (兼容性)"]
+    group: "常规设置"
+    order: 0
+    tooltip: "选择用于载入并绘制字幕的引擎后端"
   - id: flip_horizontal
     name: 水平翻转 (Flip H)
     type: bool
@@ -95,14 +103,6 @@ parameters:
     order: 10
     tooltip: "CAS 锐化强度（范围 0.0 - 1.0，默认 0.5）。值越大图像越清晰，但过高可能产生白边"
 
-  - id: sub_engine
-    name: 字幕渲染引擎
-    type: select
-    default: "Subtext (默认)"
-    options: ["Subtext (默认)", "AssRender (高性能)", "VSFilterMod (兼容性)"]
-    group: "常规设置"
-    order: 11
-    tooltip: "选择用于载入并绘制字幕的引擎后端"
 locales:
   en:
     name: "Mobile"
@@ -233,7 +233,7 @@ if {deband}:
 # 8. 字幕渲染 (如果选择了字幕)
 sub_path = "{input_s}"
 if sub_path and not sub_path.endswith("empty.srt"):
-    sub_engine = "{sub_engine}".lower() if "{sub_engine}" else "subtext"
+    sub_engine = {sub_engine}.lower() if {sub_engine} else "subtext"
     def load_dll_and_call(dll_filename, call_func):
         import os
         dll_path = os.path.join(r"{components_dir}", "vapoursynth", "plugins", "vsrepo", dll_filename)

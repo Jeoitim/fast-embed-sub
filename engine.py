@@ -305,7 +305,7 @@ class TranscodeEngine(QObject):
             "# 8. 字幕渲染 (如果选择了字幕)\n"
             "sub_path = \"{input_s}\"\n"
             "if sub_path and not sub_path.endswith(\"empty.srt\"):\n"
-            "    sub_engine = \"{sub_engine}\".lower() if \"{sub_engine}\" else \"subtext\"\n"
+            "    sub_engine = {sub_engine}.lower() if {sub_engine} else \"subtext\"\n"
             "    def load_dll_and_call(dll_filename, call_func):\n"
             "        import os\n"
             "        dll_path = os.path.join(r\"{components_dir}\", \"vapoursynth\", \"plugins\", \"vsrepo\", dll_filename)\n"

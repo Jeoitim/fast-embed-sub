@@ -1027,12 +1027,22 @@ class MainUI(QMainWindow):
                 # 默认基础参数列表，使传统 ffmpeg 预设或无参预设也支持基础的 VapourSynth 几何变换与缩放
                 params = [
                     {
+                        "id": "sub_engine",
+                        "name": "字幕渲染引擎" if self.lang == 'zh' else "Subtitle Engine",
+                        "type": "select",
+                        "default": "Subtext (默认)" if self.lang == 'zh' else "Subtext (Default)",
+                        "options": ["Subtext (默认)", "AssRender (高性能)", "VSFilterMod (兼容性)"] if self.lang == 'zh' else ["Subtext (Default)", "AssRender (High Performance)", "VSFilterMod (Compatibility)"],
+                        "group": "常规设置" if self.lang == 'zh' else "General",
+                        "order": 1,
+                        "tooltip": "选择用于载入并绘制字幕的引擎后端" if self.lang == 'zh' else "Select the rendering engine backend for hardcoding subtitles"
+                    },
+                    {
                         "id": "flip_horizontal",
                         "name": "水平翻转 (Flip H)" if self.lang == 'zh' else "Horizontal Flip (Flip H)",
                         "type": "bool",
                         "default": False,
                         "group": "几何变换" if self.lang == 'zh' else "Geometry",
-                        "order": 1,
+                        "order": 2,
                         "tooltip": "是否对画面进行水平镜像翻转" if self.lang == 'zh' else "Whether to mirror the video horizontally"
                     },
                     {
@@ -1041,7 +1051,7 @@ class MainUI(QMainWindow):
                         "type": "bool",
                         "default": False,
                         "group": "几何变换" if self.lang == 'zh' else "Geometry",
-                        "order": 2,
+                        "order": 3,
                         "tooltip": "是否对画面进行垂直倒置翻转" if self.lang == 'zh' else "Whether to flip the video vertically"
                     },
                     {
@@ -1051,18 +1061,8 @@ class MainUI(QMainWindow):
                         "default": "1.0",
                         "options": ["1.0", "0.75", "0.5", "0.25"],
                         "group": "尺寸调整" if self.lang == 'zh' else "Resize",
-                        "order": 3,
-                        "tooltip": "通过滑块调整画面分辨率比例（固定刻度）" if self.lang == 'zh' else "Scale the video resolution (fixed scales)"
-                    },
-                    {
-                        "id": "sub_engine",
-                        "name": "字幕渲染引擎" if self.lang == 'zh' else "Subtitle Engine",
-                        "type": "select",
-                        "default": "Subtext (默认)" if self.lang == 'zh' else "Subtext (Default)",
-                        "options": ["Subtext (默认)", "AssRender (高性能)", "VSFilterMod (兼容性)"] if self.lang == 'zh' else ["Subtext (Default)", "AssRender (High Performance)", "VSFilterMod (Compatibility)"],
-                        "group": "常规设置" if self.lang == 'zh' else "General",
                         "order": 4,
-                        "tooltip": "选择用于载入并绘制字幕的引擎后端" if self.lang == 'zh' else "Select the rendering engine backend for hardcoding subtitles"
+                        "tooltip": "通过滑块调整画面分辨率比例（固定刻度）" if self.lang == 'zh' else "Scale the video resolution (fixed scales)"
                     }
                 ]
             self.vpy_param_widget.load_params(params)
