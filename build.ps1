@@ -1,3 +1,20 @@
+# 0. 自动生成 icon.ico 文件 (用于 Nuitka 和 NSIS 图标)
+$IcoFile = "assets/icon.ico"
+$PngFile = "assets/icon.png"
+if (Test-Path $PngFile) {
+    Write-Host "正在生成 Windows 多尺寸图标 (assets/icon.ico)..." -ForegroundColor Yellow
+    $PythonExe = "python"
+    if (Test-Path ".venv\Scripts\python.exe") {
+        $PythonExe = ".venv\Scripts\python.exe"
+    }
+    & $PythonExe -c "from PIL import Image; img = Image.open('$PngFile'); img.save('$IcoFile', format='ICO', sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])" 2>&1 | Out-Null
+    if (Test-Path $IcoFile) {
+        Write-Host " [OK] 图标生成成功" -ForegroundColor Green
+    } else {
+        Write-Host " [!] 警告: 图标生成失败，将使用 Nuitka 默认转换" -ForegroundColor Red
+    }
+}
+
 # 1. 定义输出目录
 $OutputDir = "outputs"
 
@@ -12,7 +29,7 @@ if (Test-Path $GitignoreFile) {
         Write-Host "已将 $IgnoreEntry 添加到 .gitignore" -ForegroundColor Green
     }
 } else {
-    New-Content $GitignoreFile -Value "$IgnoreEntry"
+    Set-Content $GitignoreFile -Value "$IgnoreEntry"
     Write-Host "已创建 .gitignore 并添加 $IgnoreEntry" -ForegroundColor Green
 }
 
@@ -25,13 +42,16 @@ $NuitkaArgs = @(
     "--jobs=$env:NUMBER_OF_PROCESSORS",
     "--plugin-enable=pyside6",
     "--windows-disable-console",
-    "--include-data-dir=assets=assets",
-    "--include-data-dir=components=components",
     "--output-dir=$OutputDir",
     "--output-filename=FastEmbedSub",
-    "--windows-icon-from-ico=assets/icon.png",
     "--lto=yes"
 )
+
+if (Test-Path $IcoFile) {
+    $NuitkaArgs += "--windows-icon-from-ico=$IcoFile"
+} elseif (Test-Path $PngFile) {
+    $NuitkaArgs += "--windows-icon-from-ico=$PngFile"
+}
 
 $UseUpx = $false
 if (Get-Command "upx" -ErrorAction SilentlyContinue) {
@@ -64,7 +84,11 @@ $NuitkaArgs += "--follow-imports"
 $NuitkaArgs += "main.py"
 
 Write-Host "开始运行 Nuitka 进行 Standalone 编译..." -ForegroundColor Cyan
-nuitka @NuitkaArgs
+$NuitkaExe = "nuitka"
+if (Test-Path ".venv\Scripts\nuitka.exe") {
+    $NuitkaExe = ".venv\Scripts\nuitka.exe"
+}
+& $NuitkaExe @NuitkaArgs
 
 
 # 4. 强制搬运资源文件夹 (保底方案)
@@ -82,6 +106,10 @@ $FoldersToCopy = @("components", "presets", "assets")
 foreach ($Folder in $FoldersToCopy) {
     if (Test-Path $Folder) {
         $Dest = Join-Path $DistPath $Folder
+        # 先清理已存在的旧目录，防止 Copy-Item 嵌套复制
+        if (Test-Path $Dest) {
+            Remove-Item -Path $Dest -Recurse -Force
+        }
         Copy-Item -Path $Folder -Destination $DistPath -Recurse -Force
         Write-Host " [OK] 已同步目录: $Folder -> $Dest" -ForegroundColor Green
     } else {
@@ -94,8 +122,8 @@ if ($UseUpx) {
     Write-Host "`n正在使用 UPX 压缩二进制文件..." -ForegroundColor Yellow
     $upxCount = 0
     Get-ChildItem -Path $DistPath -Recurse -Include "*.exe", "*.dll" | Where-Object {
-        # 跳过 ffmpeg.exe（通常已优化且体积很大，压缩耗时长且收益低）
-        $_.Name -ne "ffmpeg.exe"
+        # 跳过 components 目录下的所有二进制文件，防止损坏 VapourSynth 插件与 ffmpeg
+        $_.FullName -notlike "*\components\*" -and $_.Name -ne "ffmpeg.exe"
     } | ForEach-Object {
         & upx --best "$($_.FullName)" 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
@@ -103,6 +131,29 @@ if ($UseUpx) {
         }
     }
     Write-Host " [OK] UPX 压缩完成，共处理 $upxCount 个文件" -ForegroundColor Green
+}
+
+# 7. 检测并执行 NSIS 安装包制作
+$MakeNsisPath = ""
+if (Get-Command "makensis" -ErrorAction SilentlyContinue) {
+    $MakeNsisPath = "makensis"
+} elseif (Test-Path "C:\Program Files (x86)\NSIS\makensis.exe") {
+    $MakeNsisPath = "C:\Program Files (x86)\NSIS\makensis.exe"
+} elseif (Test-Path "C:\Program Files\NSIS\makensis.exe") {
+    $MakeNsisPath = "C:\Program Files\NSIS\makensis.exe"
+}
+
+if ($MakeNsisPath -ne "") {
+    Write-Host "`n检测到 NSIS，正在制作安装包..." -ForegroundColor Yellow
+    & $MakeNsisPath /DAPP_DIST_DIR="$DistPath" installer.nsi
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host " [OK] 安装包已成功制作并保存至 outputs 目录！" -ForegroundColor Green
+    } else {
+        Write-Host " [!] 制作安装包时出错！" -ForegroundColor Red
+    }
+} else {
+    Write-Host "`n提示：未检测到 NSIS (makensis.exe)。" -ForegroundColor Yellow
+    Write-Host "如果你想自动制作 exe 安装包，请前往 https://nsis.sourceforge.io 下载并安装 NSIS，然后将其所在目录加入到系统环境变量 PATH 中。" -ForegroundColor Yellow
 }
 
 Write-Host "`n打包与资源同步完成！生成的程序位于: $DistPath" -ForegroundColor Cyan

@@ -16,3 +16,6 @@ nuitka-crash-report.xml
 # Portable VapourSynth runtime dependencies
 components/vapoursynth/
 components/*.dist-info/
+
+# Generated assets
+assets/icon.ico
