@@ -79,6 +79,21 @@ Parameters declared in this block are rendered dynamically in the UI. Supported 
 * `order`: Placement ordering within the group.
 * `tooltip`: Description displayed on mouse hover.
 
+### 2.2.1 Preset Localization (Optional)
+If a preset needs to display localized text for different GUI languages, you can define a `locales` block in the YAML metadata:
+```yaml
+locales:
+  en:
+    name: "WebM"
+    desc: "Suitable for web embedding: VP9 encoding, outputs WebM format..."
+    parameters:
+      flip_horizontal:
+        name: "Horizontal Flip (Flip H)"
+        group: "Geometry"
+        tooltip: "Whether to mirror the video horizontally"
+```
+When the user switches the GUI language, the preset's name, description, and parameter fields (`name`, `group`, `tooltip`) will automatically adapt to the corresponding translation.
+
 ### 2.3 Dynamic Placeholders & Path Safety
 All placeholders use curly braces `{placeholder}`. **During compilation, the engine handles path formats and escaping safety rules automatically:**
 

@@ -26,6 +26,24 @@ parameters:
     group: "尺寸调整"
     order: 3
     tooltip: "通过滑块调整画面分辨率比例（固定刻度）"
+
+locales:
+  en:
+    name: "Mobile"
+    desc: "Suitable for mobile playback & transfer: H.264 medium quality (CRF 23), capped at 720p, moderate size, AAC 128k audio."
+    parameters:
+      flip_horizontal:
+        name: "Horizontal Flip (Flip H)"
+        group: "Geometry"
+        tooltip: "Whether to mirror the video horizontally"
+      flip_vertical:
+        name: "Vertical Flip (Flip V)"
+        group: "Geometry"
+        tooltip: "Whether to flip the video vertically"
+      resize_scale:
+        name: "Resize Scale"
+        group: "Resize"
+        tooltip: "Resize the video resolution scale with the slider (discrete steps)"
 $custom-end
 
 $vpy-start

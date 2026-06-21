@@ -79,6 +79,21 @@ $vpy-end
 * `order`：在分组卡片中的显示顺序。
 * `tooltip`：鼠标悬停在控件上时的气泡提示信息。
 
+### 2.2.1 预设本地化配置 (可选)
+如果需要预设在不同界面语言下显示对应的文本，可以在 YAML 中添加 `locales` 配置区块：
+```yaml
+locales:
+  en:
+    name: "WebM"
+    desc: "Suitable for web embedding: VP9 encoding, outputs WebM format..."
+    parameters:
+      flip_horizontal:
+        name: "Horizontal Flip (Flip H)"
+        group: "Geometry"
+        tooltip: "Whether to mirror the video horizontally"
+```
+当用户在 GUI 中将语言切换为对应语言（如 `en`）时，预设名称、描述以及各个自定义参数的 `name`、`group` 和 `tooltip` 都会自动应用此处定义的翻译，从而实现完全的语言解耦。
+
 ### 2.3 动态变量与路径占位符
 所有的占位符均使用大括号 `{placeholder}` 语法。**在 VapourSynth 脚本被编译时，引擎会自动处理转义与格式转换：**
 
