@@ -810,7 +810,7 @@ class MainUI(QMainWindow):
         title_v_layout.setSpacing(4)
         
         app_name = self._TitleLabel("Fast Embed Sub")
-        version_label = self._SubtitleLabel("v0.3.0 beta")
+        version_label = self._SubtitleLabel("v1.0.0")
         version_label.setStyleSheet("color: #0078D4; font-weight: bold;")
         
         title_v_layout.addWidget(app_name)
