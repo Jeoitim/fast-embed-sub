@@ -208,6 +208,7 @@ class MainUI(QMainWindow):
         # ====== 核心初始化：引擎与信号 ======
         from engine import TranscodeEngine
         self.engine = TranscodeEngine()
+        self.engine.lang = self.lang
         self.engine.task_status_changed.connect(self.update_task_ui)
         self.engine.log_message.connect(self._on_log_message)
         self.task_widgets = {} # 存储队列UI卡片的字典
@@ -341,6 +342,7 @@ class MainUI(QMainWindow):
 
     def toggle_language(self):
         self.lang = 'en' if self.lang == 'zh' else 'zh'
+        self.engine.lang = self.lang
         self.settings.setValue("language", self.lang)
         self.retranslate_ui()
 
@@ -1250,22 +1252,6 @@ class MainUI(QMainWindow):
                 self.global_progress.setValue(0)
 
     def _on_log_message(self, message, color):
-        if self.lang == 'en':
-            message = message.replace("<b>[警告]</b>", "<b>[WARNING]</b>")
-            message = message.replace("未在 components/ 目录下检测到 ffmpeg.exe，且环境变量中没有找到 ffmpeg。压制任务将无法正常运行！", 
-                                      "ffmpeg.exe was not detected in the components/ directory, and ffmpeg was not found in environment variables. Encoding tasks will not work properly!")
-            message = message.replace("<b>[队列]</b> 任务已添加:", "<b>[Queue]</b> Task added:")
-            message = message.replace("开始压制...", "Started encoding...")
-            message = message.replace("执行命令:", "Executing command:")
-            message = message.replace("<b>[队列]</b> 所有任务处理完毕", "<b>[Queue]</b> All tasks completed")
-            message = message.replace("<b>[队列]</b> 任务队列已清空", "<b>[Queue]</b> Task queue cleared")
-            message = message.replace("已删除未完成文件:", "Deleted incomplete file:")
-            message = message.replace("删除文件失败:", "Failed to delete file:")
-            message = message.replace("任务已手动取消", "Task manually cancelled")
-            message = message.replace("压制成功", "Successfully encoded")
-            message = message.replace("压制失败", "Encoding failed")
-            message = message.replace("退出码:", "Exit code:")
-            
         styled = f'<span style="color: {color};">{message}</span>' if color else message
         self.log_history.append(styled)
         self.log_buffer.append(styled)

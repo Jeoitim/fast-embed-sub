@@ -13,6 +13,42 @@ DURATION_REGEX = re.compile(r'Duration: (\d+):(\d+):(\d+\.\d+)')
 TIME_REGEX = re.compile(r'time=(\d+):(\d+):(\d+\.\d+)')
 
 
+ENGINE_TRANSLATIONS = {
+    'zh': {
+        'warn_no_ffmpeg': "<b>[警告]</b> 未在 components/ 目录下检测到 ffmpeg.exe，且环境变量中没有找到 ffmpeg。压制任务将无法正常运行！",
+        'sys_vs_registered': "[系统] 已自动为便携版 VapourSynth 注册 Python 运行库映射。",
+        'queue_task_added': "<b>[队列]</b> 任务已添加: {video} ({preset})",
+        'task_start': "<b>[{video}]</b> 开始压制...",
+        'task_cmd': "<b>[{video}]</b> 执行命令: {cmd}",
+        'sys_vs_loaded': "[系统] 已载入便携版 VapourSynth 运行环境: {dir}",
+        'queue_finished': "<b>[队列]</b> 所有任务处理完毕",
+        'sys_cleaned_temp': "[系统] 已清理临时 Vpy 文件: {filename}",
+        'queue_cleared': "<b>[队列]</b> 任务队列已清空",
+        'task_deleted_unfinished': "<b>[{video}]</b> 已删除未完成文件: {filename}",
+        'task_delete_failed': "<b>[{video}]</b> 删除文件失败: {error}",
+        'task_cancelled': "<b>[{video}]</b> 任务已手动取消",
+        'task_success': "<b>[{video}]</b> 压制成功",
+        'task_failed': "<b>[{video}]</b> 压制失败 (退出码: {exit_code})",
+    },
+    'en': {
+        'warn_no_ffmpeg': "<b>[Warning]</b> ffmpeg.exe was not detected in the components/ directory, and ffmpeg was not found in environment variables. Encoding tasks will not work properly!",
+        'sys_vs_registered': "[System] Automatically registered Python library mapping for portable VapourSynth.",
+        'queue_task_added': "<b>[Queue]</b> Task added: {video} ({preset})",
+        'task_start': "<b>[{video}]</b> Started encoding...",
+        'task_cmd': "<b>[{video}]</b> Executing command: {cmd}",
+        'sys_vs_loaded': "[System] Loaded portable VapourSynth runtime environment: {dir}",
+        'queue_finished': "<b>[Queue]</b> All tasks completed",
+        'sys_cleaned_temp': "[System] Cleaned up temporary Vpy file: {filename}",
+        'queue_cleared': "<b>[Queue]</b> Task queue cleared",
+        'task_deleted_unfinished': "<b>[{video}]</b> Deleted incomplete file: {filename}",
+        'task_delete_failed': "<b>[{video}]</b> Failed to delete file: {error}",
+        'task_cancelled': "<b>[{video}]</b> Task manually cancelled",
+        'task_success': "<b>[{video}]</b> Successfully encoded",
+        'task_failed': "<b>[{video}]</b> Encoding failed (Exit code: {exit_code})",
+    }
+}
+
+
 class TranscodeTask:
     """定义单个压制任务的状态模型"""
     def __init__(self, task_id, video, sub, output_path, preset_name, final_cmd, temp_vpy_path=None):
@@ -36,6 +72,7 @@ class TranscodeEngine(QObject):
     
     def __init__(self, ffmpeg_path="components/ffmpeg.exe"):
         super().__init__()
+        self.lang = "zh"
         if getattr(sys, 'frozen', False):
             self.bundle_dir = os.path.dirname(sys.executable)
         else:
@@ -49,9 +86,7 @@ class TranscodeEngine(QObject):
                 self.ffmpeg_path = sys_ffmpeg
             else:
                 # 延迟发出通知，等待界面连接好 log_message 信号
-                QTimer.singleShot(500, lambda: self._log_to_window(
-                    "<b>[警告]</b> 未在 components/ 目录下检测到 ffmpeg.exe，且环境变量中没有找到 ffmpeg。压制任务将无法正常运行！", "red"
-                ))
+                QTimer.singleShot(500, lambda: self._log_to_window("warn_no_ffmpeg", "red"))
         
         # 任务队列管理
         self.queue = []  # 存储 TranscodeTask 对象
@@ -109,7 +144,7 @@ class TranscodeEngine(QObject):
                 # 添加便携版映射
                 with open(toml_path, 'a', encoding='utf-8') as f:
                     f.write(f'\n"{portable_key}" = {python_paths_array}\n')
-                self._log_to_window(f"[系统] 已自动为便携版 VapourSynth 注册 Python 运行库映射。")
+                self._log_to_window("sys_vs_registered")
         except Exception as e:
             print(f"自动配置 VapourSynth toml 失败: {e}")
 
@@ -418,7 +453,7 @@ class TranscodeEngine(QObject):
             
         self.queue.append(new_task)
         
-        self._log_to_window(f"<b>[队列]</b> 任务已添加: {os.path.basename(video)} ({preset_name})", "blue")
+        self._log_to_window("queue_task_added", "blue", video=os.path.basename(video), preset=preset_name)
         
         if self.current_task is None:
             self._start_next_task()
@@ -433,8 +468,8 @@ class TranscodeEngine(QObject):
                 self.current_task.status = "压制中"
                 self.task_status_changed.emit(task.task_id)
                 
-                self._log_to_window(f"<b>[{os.path.basename(task.video)}]</b> 开始压制...", "green")
-                self._log_to_window(f"<b>[{os.path.basename(task.video)}]</b> 执行命令: {task.final_cmd}", "blue")
+                self._log_to_window("task_start", "green", video=os.path.basename(task.video))
+                self._log_to_window("task_cmd", "blue", video=os.path.basename(task.video), cmd=task.final_cmd)
                 
                 # 为子进程加载便携式 VapourSynth 运行环境
                 from PySide6.QtCore import QProcessEnvironment
@@ -451,7 +486,7 @@ class TranscodeEngine(QObject):
                         env.insert("PYTHONPATH", vs_portable_dir)
                     
                     self.process.setProcessEnvironment(env)
-                    self._log_to_window(f"[系统] 已载入便携版 VapourSynth 运行环境: {vs_portable_dir}")
+                    self._log_to_window("sys_vs_loaded", dir=vs_portable_dir)
                 
                 # Windows 平台下如果包含管道符，需要通过 cmd.exe /c 运行
                 # 使用 setNativeArguments 绕过 Qt 默认参数转义，防止引号被转义导致找不到可执行文件
@@ -467,7 +502,7 @@ class TranscodeEngine(QObject):
                 return
         
         self.current_task = None
-        self._log_to_window("<b>[队列]</b> 所有任务处理完毕", "cyan")
+        self._log_to_window("queue_finished", "cyan")
 
     def _cleanup_temp_vpy(self, task):
         """清理临时生成的 Vpy 文件"""
@@ -475,7 +510,7 @@ class TranscodeEngine(QObject):
             if os.path.exists(task.temp_vpy_path):
                 try:
                     os.remove(task.temp_vpy_path)
-                    self._log_to_window(f"[系统] 已清理临时 Vpy 文件: {os.path.basename(task.temp_vpy_path)}")
+                    self._log_to_window("sys_cleaned_temp", filename=os.path.basename(task.temp_vpy_path))
                 except Exception as e:
                     print(f"清理临时文件失败: {e}")
 
@@ -503,19 +538,30 @@ class TranscodeEngine(QObject):
             self._delete_unfinished_file(self.current_task)
         self.queue.clear()
         self.current_task = None
-        self._log_to_window("<b>[队列]</b> 任务队列已清空", "orange")
+        self._log_to_window("queue_cleared", "orange")
 
     def _delete_unfinished_file(self, task):
         """删除未完成的文件"""
         if os.path.exists(task.output_path):
             try:
                 os.remove(task.output_path)
-                self._log_to_window(f"<b>[{os.path.basename(task.video)}]</b> 已删除未完成文件: {os.path.basename(task.output_path)}", "orange")
+                self._log_to_window("task_deleted_unfinished", "orange", video=os.path.basename(task.video), filename=os.path.basename(task.output_path))
             except Exception as e:
-                self._log_to_window(f"<b>[{os.path.basename(task.video)}]</b> 删除文件失败: {e}", "red")
+                self._log_to_window("task_delete_failed", "red", video=os.path.basename(task.video), error=str(e))
 
-    def _log_to_window(self, message, color=None):
-        """发送日志信号，解耦 GUI"""
+    def _log_to_window(self, message_key, color=None, **kwargs):
+        """发送日志信号，支持多语言和格式化，解耦 GUI"""
+        lang = getattr(self, "lang", "zh")
+        translations = ENGINE_TRANSLATIONS.get(lang, ENGINE_TRANSLATIONS["zh"])
+        if message_key in translations:
+            message = translations[message_key].format(**kwargs)
+        else:
+            message = message_key
+            if kwargs:
+                try:
+                    message = message.format(**kwargs)
+                except Exception:
+                    pass
         self.log_message.emit(message, color or "")
 
     def on_process_started(self):
@@ -525,15 +571,15 @@ class TranscodeEngine(QObject):
         if self.current_task:
             self._cleanup_temp_vpy(self.current_task)
             if self.current_task.status == "已取消":
-                self._log_to_window(f"<b>[{os.path.basename(self.current_task.video)}]</b> 任务已手动取消", "gray")
+                self._log_to_window("task_cancelled", "gray", video=os.path.basename(self.current_task.video))
                 self._delete_unfinished_file(self.current_task)
             elif exit_code == 0:
                 self.current_task.status = "已完成"
                 self.current_task.progress = 100
-                self._log_to_window(f"<b>[{os.path.basename(self.current_task.video)}]</b> 压制成功", "green")
+                self._log_to_window("task_success", "green", video=os.path.basename(self.current_task.video))
             else:
                 self.current_task.status = "失败"
-                self._log_to_window(f"<b>[{os.path.basename(self.current_task.video)}]</b> 压制失败 (退出码: {exit_code})", "red")
+                self._log_to_window("task_failed", "red", video=os.path.basename(self.current_task.video), exit_code=exit_code)
             
             self.task_status_changed.emit(self.current_task.task_id)
         
