@@ -94,6 +94,15 @@ parameters:
     group: "画质优化"
     order: 10
     tooltip: "CAS 锐化强度（范围 0.0 - 1.0，默认 0.5）。值越大图像越清晰，但过高可能产生白边"
+
+  - id: sub_engine
+    name: 字幕渲染引擎
+    type: select
+    default: "Subtext (默认)"
+    options: ["Subtext (默认)", "AssRender (高性能)", "VSFilterMod (兼容性)"]
+    group: "常规设置"
+    order: 11
+    tooltip: "选择用于载入并绘制字幕的引擎后端"
 locales:
   en:
     name: "Default"
@@ -139,6 +148,10 @@ locales:
         name: "Sharpen Strength"
         group: "Enhance"
         tooltip: "CAS sharpening strength (0.0 to 1.0)"
+      sub_engine:
+        name: "Subtitle Engine"
+        group: "General"
+        tooltip: "Select the rendering engine backend for hardcoding subtitles"
 $custom-end
 
 $vpy-start
@@ -220,23 +233,43 @@ if {deband}:
 # 8. 字幕渲染 (如果选择了字幕)
 sub_path = "{input_s}"
 if sub_path and not sub_path.endswith("empty.srt"):
-    try:
-        clip = core.sub.TextFile(clip, file=sub_path)
-    except AttributeError:
+    sub_engine = "{sub_engine}".lower() if "{sub_engine}" else "subtext"
+    def load_dll_and_call(dll_filename, call_func):
         import os
-        dll_path = r"{components_dir}/vapoursynth/plugins/subtext.dll"
+        dll_path = os.path.join(r"{components_dir}", "vapoursynth", "plugins", "vsrepo", dll_filename)
+        if not os.path.exists(dll_path):
+            dll_path = os.path.join(r"{components_dir}", "vapoursynth", "plugins", dll_filename)
         if not os.path.exists(dll_path):
             raise FileNotFoundError(f"字幕渲染失败：缺少必要的字幕插件 (dll_path={dll_path})。请检查 components 目录是否完整。")
         try:
             core.std.LoadPlugin(path=dll_path)
         except Exception as e:
-            raise RuntimeError(f"字幕渲染失败：加载字幕插件失败 ({dll_path})，错误信息: {e}")
+            raise RuntimeError(f"字幕渲染失败：加载字幕插件失败 ({dll_filename})，错误信息: {e}")
+        try:
+            return call_func()
+        except Exception as e:
+            raise RuntimeError(f"字幕渲染失败：渲染字幕文件 '{sub_path}' 出错: {e}")
+    if "assrender" in sub_engine:
+        try:
+            clip = core.assrender.Render(clip, file=sub_path)
+        except AttributeError:
+            clip = load_dll_and_call("assrender.dll", lambda: core.assrender.Render(clip, file=sub_path))
+        except Exception as e:
+            raise RuntimeError(f"字幕渲染失败：渲染字幕文件 '{sub_path}' 出错: {e}")
+    elif "vsfiltermod" in sub_engine:
+        try:
+            clip = core.vsfm.TextSubMod(clip, file=sub_path)
+        except AttributeError:
+            clip = load_dll_and_call("VSFilterMod.dll", lambda: core.vsfm.TextSubMod(clip, file=sub_path))
+        except Exception as e:
+            raise RuntimeError(f"字幕渲染失败：渲染字幕文件 '{sub_path}' 出错: {e}")
+    else:
         try:
             clip = core.sub.TextFile(clip, file=sub_path)
+        except AttributeError:
+            clip = load_dll_and_call("subtext.dll", lambda: core.sub.TextFile(clip, file=sub_path))
         except Exception as e:
-            raise RuntimeError(f"字幕渲染失败：解析或载入字幕文件 '{sub_path}' 出错: {e}")
-    except Exception as e:
-        raise RuntimeError(f"字幕渲染失败：解析或载入字幕文件 '{sub_path}' 出错: {e}")
+            raise RuntimeError(f"字幕渲染失败：渲染字幕文件 '{sub_path}' 出错: {e}")
 
 # 9. 输出
 clip.set_output()

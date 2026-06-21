@@ -1053,6 +1053,16 @@ class MainUI(QMainWindow):
                         "group": "尺寸调整" if self.lang == 'zh' else "Resize",
                         "order": 3,
                         "tooltip": "通过滑块调整画面分辨率比例（固定刻度）" if self.lang == 'zh' else "Scale the video resolution (fixed scales)"
+                    },
+                    {
+                        "id": "sub_engine",
+                        "name": "字幕渲染引擎" if self.lang == 'zh' else "Subtitle Engine",
+                        "type": "select",
+                        "default": "Subtext (默认)" if self.lang == 'zh' else "Subtext (Default)",
+                        "options": ["Subtext (默认)", "AssRender (高性能)", "VSFilterMod (兼容性)"] if self.lang == 'zh' else ["Subtext (Default)", "AssRender (High Performance)", "VSFilterMod (Compatibility)"],
+                        "group": "常规设置" if self.lang == 'zh' else "General",
+                        "order": 4,
+                        "tooltip": "选择用于载入并绘制字幕的引擎后端" if self.lang == 'zh' else "Select the rendering engine backend for hardcoding subtitles"
                     }
                 ]
             self.vpy_param_widget.load_params(params)
