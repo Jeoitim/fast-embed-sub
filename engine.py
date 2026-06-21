@@ -218,6 +218,20 @@ class TranscodeEngine(QObject):
         
         vpy_compiled = PresetParser.compile_vpy_script(vpy_template, all_values)
         
+        # 语法检查：在写入临时文件前，使用 python 内置 compile 验证 Vpy 代码语法是否合规
+        try:
+            compile(vpy_compiled, f"preset_{preset_name}.vpy", "exec")
+        except SyntaxError as e:
+            # 提取具体的行号、错误描述和出错代码段
+            line_no = e.lineno
+            line_text = e.text.strip() if e.text else ""
+            error_details = (
+                f"预设模板 [{preset_name}] 编译后的 Vpy 脚本中包含语法错误！\n"
+                f"错误信息: {e.msg} (第 {line_no} 行)\n"
+                f"出错代码: {line_text}"
+            )
+            raise ValueError(error_details)
+        
         # 写入系统临时文件夹
         temp_dir = tempfile.gettempdir()
         vpy_filename = f"vs_temp_{uuid.uuid4().hex[:8]}.vpy"
