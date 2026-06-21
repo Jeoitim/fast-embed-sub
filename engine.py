@@ -197,9 +197,8 @@ class TranscodeEngine(QObject):
     def compile_and_register_vpy(self, vpy_template, param_values, video_path, subtitle_path, preset_name):
         """编译并生成临时的 .vpy 文件，返回其绝对路径"""
         abs_sub_path = os.path.abspath(subtitle_path)
-        drive, rest = os.path.splitdrive(abs_sub_path)
-        path_fixed = f"{drive[0].upper()}\\:{rest.replace('\\', '/')}" if drive else abs_sub_path.replace("\\", "/")
-        escaped_sub = path_fixed
+        # Vpy 脚本是标准的 Python 环境，直接使用正斜杠路径，不能包含 ffmpeg 的冒号转义（\\:），否则 VvapourSynth 会报错找不到文件
+        vpy_sub_path = abs_sub_path.replace("\\", "/")
         
         # 准备目录占位符的真实路径
         preset_dir = os.path.abspath(os.path.join(self.bundle_dir, "presets"))
@@ -208,8 +207,8 @@ class TranscodeEngine(QObject):
         
         # 将系统内置路径与自定义参数一同交给 compile_vpy_script 统一替换和转义
         all_values = {
-            "input_v": video_path,
-            "input_s": escaped_sub,
+            "input_v": video_path.replace("\\", "/"),
+            "input_s": vpy_sub_path,
             "preset_dir": preset_dir,
             "components_dir": components_dir,
             "preset_components_dir": preset_components_dir
