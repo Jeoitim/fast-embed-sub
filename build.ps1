@@ -33,9 +33,10 @@ $NuitkaArgs = @(
     "--lto=yes"
 )
 
+$UseUpx = $false
 if (Get-Command "upx" -ErrorAction SilentlyContinue) {
-    Write-Host '检测到 UPX，已自动启用 Nuitka UPX 压缩，这会大幅缩减生成的 exe 和 dll 文件的体积。' -ForegroundColor Green
-    $NuitkaArgs += "--upx-binary=upx"
+    $UseUpx = $true
+    Write-Host '检测到 UPX，将在打包完成后自动压缩 exe 和 dll 文件以缩减体积。' -ForegroundColor Green
 } else {
     Write-Host '未检测到 UPX。提示：如果想要将软件体积进一步缩减 ~50%，请前往 https://upx.github.io 下载 UPX 并将其所在目录加入到系统环境变量 PATH 中。' -ForegroundColor Yellow
 }
@@ -86,6 +87,22 @@ foreach ($Folder in $FoldersToCopy) {
     } else {
         Write-Host " [!] 警告: 未找到源目录 $Folder" -ForegroundColor Red
     }
+}
+
+# 6. UPX 后压缩（Nuitka 4.x 不再内置 UPX 支持，改为构建后手动压缩）
+if ($UseUpx) {
+    Write-Host "`n正在使用 UPX 压缩二进制文件..." -ForegroundColor Yellow
+    $upxCount = 0
+    Get-ChildItem -Path $DistPath -Recurse -Include "*.exe", "*.dll" | Where-Object {
+        # 跳过 ffmpeg.exe（通常已优化且体积很大，压缩耗时长且收益低）
+        $_.Name -ne "ffmpeg.exe"
+    } | ForEach-Object {
+        & upx --best "$($_.FullName)" 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            $upxCount++
+        }
+    }
+    Write-Host " [OK] UPX 压缩完成，共处理 $upxCount 个文件" -ForegroundColor Green
 }
 
 Write-Host "`n打包与资源同步完成！生成的程序位于: $DistPath" -ForegroundColor Cyan

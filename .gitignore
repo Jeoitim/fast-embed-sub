@@ -12,3 +12,6 @@ wheels/
 # Nuitka compiled files
 outputs/
 nuitka-crash-report.xml
+
+# Portable VapourSynth runtime dependencies
+components/vapoursynth/

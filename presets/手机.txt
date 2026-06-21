@@ -1,2 +1,85 @@
 # 适合手机播放与传输：H.264 中等画质(CRF 23)，限制 720p，体积适中，音频 AAC 128k。
-components/ffmpeg.exe -i "{input_v}" -vf "subtitles={input_s},scale=-2:720" -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -y "{output_dir}/{filename}.{format}"
+
+$custom-start
+parameters:
+  - id: flip_horizontal
+    name: 水平翻转 (Flip H)
+    type: bool
+    default: false
+    group: "几何变换"
+    order: 1
+    tooltip: "是否对画面进行水平镜像翻转"
+
+  - id: flip_vertical
+    name: 垂直翻转 (Flip V)
+    type: bool
+    default: false
+    group: "几何变换"
+    order: 2
+    tooltip: "是否对画面进行垂直倒置翻转"
+
+  - id: resize_scale
+    name: 画面缩放倍数
+    type: slider
+    default: "1.0"
+    options: ["1.0", "0.75", "0.5", "0.25"]
+    group: "尺寸调整"
+    order: 3
+    tooltip: "通过滑块调整画面分辨率比例（固定刻度）"
+$custom-end
+
+$vpy-start
+import sys
+import vapoursynth as vs
+core = vs.core
+
+# 1. 载入视频 (尝试 ffms2 或 lsmash)
+try:
+    clip = core.ffms2.Source(source="{input_v}")
+except AttributeError:
+    try:
+        clip = core.lsmas.LWLibavSource(source="{input_v}")
+    except AttributeError:
+        # 万能回退
+        clip = core.ffms2.Source(source="{input_v}")
+
+# 2. 水平翻转
+if {flip_horizontal}:
+    clip = core.std.FlipHorizontal(clip)
+
+# 3. 垂直翻转
+if {flip_vertical}:
+    clip = core.std.FlipVertical(clip)
+
+# 4. 手机特定 720p 限制与自定义缩放
+scale = float({resize_scale})
+if clip.height > 720:
+    new_h = 720
+    new_w = int(clip.width * (720 / clip.height))
+    new_w = (new_w // 2) * 2
+    clip = core.resize.Bicubic(clip, width=new_w, height=new_h)
+
+if scale != 1.0:
+    new_w = int(clip.width * scale)
+    new_h = int(clip.height * scale)
+    new_w = (new_w // 2) * 2
+    new_h = (new_h // 2) * 2
+    clip = core.resize.Bicubic(clip, width=new_w, height=new_h)
+
+# 5. 字幕渲染 (如果选择了字幕)
+sub_path = "{input_s}"
+if sub_path and not sub_path.endswith("empty.srt"):
+    try:
+        clip = core.sub.TextFile(clip, file=sub_path)
+    except AttributeError:
+        try:
+            core.std.LoadPlugin(path=r"{components_dir}/vapoursynth/plugins/subtext.dll")
+            clip = core.sub.TextFile(clip, file=sub_path)
+        except Exception:
+            pass
+
+# 6. 输出
+clip.set_output()
+$vpy-end
+
+components/vspipe.exe -c y4m "{vpy_path}" - | components/ffmpeg.exe -y -i - -i "{input_v}" -map 0:v -map 1:a? -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k "{output_dir}/{filename}.{format}"

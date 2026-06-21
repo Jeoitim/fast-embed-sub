@@ -2,108 +2,102 @@
 
 # Fast Embed Sub
 
-一款轻量级、跨平台的字幕压制工具，基于 FFmpeg 和 PySide6 开发，支持自定义预设，操作简单直观。
+Fast Embed Sub 是一款轻量级、跨平台的极简视频字幕压制工具。基于 **PySide6** 和 **FFmpeg** 构建，并融入了 Fluent 现代设计风格。它旨在提供一个极其简单、流畅的视频压制体验，用户只需简单的拖拽操作，即可快速完成专业级的硬字幕嵌入与视频转码。
 
-## 功能特点
+---
 
-- **拖拽支持**：视频、字幕、输出目录均支持拖拽操作
+## 📖 面向普通用户：快速开始
 
-> ⚠️ 本分支依赖 **PySide6-Fluent-Widgets**（PyPI 名称），可通过
->
-> ``` bash
-> pip install PySide6-Fluent-Widgets
-> ```
->
-> 安装。导入语句为 `import qfluentwidgets` 。主窗口基类为 `FluentWindow`，程序启动时会自动应用暗色 Fluent 主题，整个界面将呈现原生 Fluent 设计风格。
+如果你只是想压制视频和嵌入字幕，Fast Embed Sub 提供了极其傻瓜式的操作：
 
-- **自动检测**：输入视频后自动检测同名字幕文件（.srt/.ass/.ssa）
-- **预设系统**：支持自定义预设模板，灵活配置压制参数
-- **实时进度**：显示压制进度条和详细日志
-- **格式灵活**：支持多种输出格式（mkv/mp4/mov等）
+### 核心功能
+* 🎛️ **极简拖拽**：支持将视频、字幕文件或输出文件夹直接拖入软件界面，无需繁琐寻路。
+* 🔍 **智能关联**：输入视频后，软件会自动扫描视频同目录下同名的 `.srt` / `.ass` / `.ssa` 字幕文件并自动填入。
+* ⚡ **多任务队列**：支持将多个压制任务依次“加入任务队列”，后台依次自动压制，不占用前台操作。
+* 📝 **实时进度与日志**：提供直观的进度条以及详细的底层 FFmpeg 命令行实时输出日志，压制细节一目了然。
 
-## 🖼️ 界面预览
+### 快速使用步骤
+1. **下载或运行软件**：启动 Fast Embed Sub。
+2. **选择源文件**：将你的视频拖入软件，若有同名同目录字幕，软件会自动识别；亦可手动选择。
+3. **选择压制预设**：在下拉列表中选择一个适合你的预设（如“默认”、“极速”或“Vpy测试预设”）。
+4. **开始压制**：点击右下角“加入任务队列”按钮。压制会自动在后台队列中启动，你可以在“任务队列”选项卡中查看当前进度或取消任务。
 
-主界面 - 简洁直观的操作面板
+---
 
-![主界面](https://github.com/user-attachments/assets/0cafe3a2-0cc3-4f54-8b10-fe059b0c43e7)
+## 💡 面向极客与调参师：模块化共享与隔离生态
 
-日志界面 - 实时显示压制进度和详细信息
+Fast Embed Sub 的核心价值不仅在于“压制”，更在于其**模块化预设配置分享理念**与全新的 **VapourSynth 高级后处理运行环境**。
 
-![日志界面](https://github.com/user-attachments/assets/1164bb04-d9b2-495c-9aa4-4d4289823ea7)
+### 1. 为什么需要模块化预设共享？
+视频调参是一门专业技术。为了画质与体积的平衡，需要反复调试 FFmpeg 参数，对普通用户门槛极高。
+通过 Fast Embed Sub，极客与专业调参师可以将自己调试好的压制参数打包成一个 `.txt` 预设文件。普通用户只需将该文件放入 `presets/` 目录下，重启软件即可立即获得专业级压制效果，实现**零门槛的专业调参成果复用**。
 
-## 🌟 模块化预设配置分享理念
+### 2. 便携式 VapourSynth (VS) 环境隔离生态
+在本次重大升级中，我们引入了 VapourSynth 便携版后处理系统。
+VapourSynth 是基于 Python 的强大视频处理框架，在去色带、降噪、超分辨率缩放等方面远超 FFmpeg 内置滤镜。为了解决 VapourSynth 复杂的环境配置以及“滤镜 DLL 相互污染/版本冲突”的问题，我们设计了**便携隔离化生态**：
+* **便携执行**：将 VapourSynth 便携版解压至 `components/vapoursynth/` 目录中。软件在运行压制时，会自动为子进程载入并激活便携版环境变量，免去系统安装 Python/VvapourSynth 注册表的烦恼。
+* **隔离补充包**：
+  * **全局滤镜**：放置在 `components/vapoursynth/plugins/` 目录中，供所有预设通用。
+  * **预设专有滤镜（防污染）**：如果某个预设对插件版本有特殊要求或包含庞大的模型权重，可以直接将其放置在该预设专属的隔离目录：`presets/components/<预设名称>/` 中。
 
-Fast Embed Sub 的核心创新在于其**模块化的预设配置分享机制**，彻底改变了传统视频压制工具的使用方式。
+---
 
-### 💡 核心价值
+## 🛠️ 面向预设编写者：预设文件编写指南
 
-传统的视频压制需要用户深入了解FFmpeg参数，反复调试才能获得满意效果。而Fast Embed Sub 通过模块化预设系统，让用户能够：
+本工具采用纯数据驱动的预设系统。任何放置在 `presets/` 目录下的 `.txt` 文件都会被自动识别加载为压制选项。
 
-- **零门槛使用专业参数**：下载他人精心调试的预设文件，立即获得专业级压制效果
-- **一键获得理想质量**：无需学习复杂参数，只需选择合适的预设即可
-- **社区共享优化成果**：经验丰富的用户可以分享自己的最佳实践配置
+为了帮助您编写自定义的 **FFmpeg 命令行预设** 或高级的 **VapourSynth (Vpy) 便携化隔离预设**，我们准备了非常详尽的预设文件格式定义、YAML控件属性、路径变量及安全转义教程：
 
-### 🚀 使用流程
+👉 **[预设文件编写指南 (简体中文)](presets/document.md)**
+👉 **[Preset Writing Guide (English)](presets/document_en.md)**
 
-1. **获取预设**：从社区下载适合你需求的预设文件（.txt格式）
-2. **放置文件**：将预设文件放入软件的 `presets/` 目录
-3. **选择预设**：在软件界面中选择对应的预设选项
-4. **开始压制**：选择视频文件，点击开始即可获得专业效果
+---
 
-### 📦 预设分享生态
+## 💻 面向二次开发者：技术栈与架构设计
 
-我们鼓励用户分享自己的预设配置：
+如果你想贡献代码或对 Fast Embed Sub 进行二次开发，请参考以下指南。
 
-- **专业调参师**：分享经过大量测试验证的最佳参数组合
-- **场景专家**：针对不同使用场景（YouTube、B站、本地收藏等）优化的配置
-- **新手友好**：简单易懂的基础配置，帮助新手快速上手
+### 1. 核心技术栈与依赖
+* **开发语言**：Python >= 3.12
+* **GUI 框架**：PySide6 (Qt for Python)
+* **UI 组件库**：[PySide6-Fluent-Widgets](https://github.com/zhiyiYo/PySide6-Fluent-Widgets)（提供美观的 Fluent 现代设计控件及暗色主题支持）
+* **解析器**：PyYAML (用于解析预设文件中的 YAML 参数声明)
+* **打包工具**：Nuitka 4.x (用于将 Python 脚本编译为独立无损的高性能可执行程序)
 
-## 关于预设系统
+### 2. 核心模块与架构关系
 
-本工具采用纯数据驱动的预设系统，任何放在 `presets/` 目录下的 \[.txt\] 文件都会被自动识别为压制选项。
+整个应用程序由以下五个核心源文件构成，逻辑清晰解耦：
 
-### 1.预设文件格式
+* **[main.py](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/main.py)**：入口程序。负责应用启动闪屏渲染（SplashScreen）、异步加载重型组件、应用 Fluent 风格全局暗色主题、以及窗口初始化展示。
+* **[preset_parser.py](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/preset_parser.py)**：预设解析核心。通过正则与切片技术分离 YAML 声明、Vpy 模板和命令行模板。包含统一替换路径和转义字符串的 `compile_vpy_script` 静态方法。
+* **[vpy_param_widget.py](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/vpy_param_widget.py)**：动态 UI 面板。根据 `PresetParser` 读取的 YAML 参数配置，动态在界面上实例化控件，对参数输入范围及精度进行 Qt 约束校验，并向上提供当前参数值的字典。
+* **[gui.py](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/gui.py)**：主窗口与交互界面。基于 `FluentWindow` 构建，处理拖拽事件（DragDropLineEdit）、更新源文件信息、管理界面卡片联动、并在预设下拉列表变更时动态挂载或隐藏 `vpy_param_widget`。
+* **[engine.py](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/engine.py)**：转码与队列调度引擎。
+  * 将任务放入 `TranscodeTask` 状态模型并调度。
+  * 针对 Vpy 预设，在系统 Temp 目录下写入经过安全转义编译的临时 `.vpy` 文件。
+  * 搜索并定位便携版 `vspipe.exe`。若检测到 `components/vapoursynth`，在 `QProcessEnvironment` 中注入便携版 `PATH` 与 `PYTHONPATH` 路径。
+  * 调度 `QProcess`。如果命令行含有管道符 `|`，则使用 `cmd.exe /c` 执行流式任务；否则直接调用可执行命令。
+  * 探测视频时长以校准管道压制时的进度刷新，并在压制完成/手动取消任务后负责清理临时生成的 `.vpy` 文件。
 
-预设文件必须包含两部分： 1. **第一行（必须）**：以 `#` 开头的备注信息，显示在界面说明栏中 2. **第二行及以后**：实际执行的命令行模板
+### 3. 本地开发与运行
+1. **克隆或进入工作区**：
+   ```bash
+   cd fast-embed-sub
+   ```
+2. **安装依赖**：
+   我们使用 `uv` 提高依赖解析与安装速度。你可以使用以下命令：
+   ```bash
+   uv pip install -r requirements.txt
+   ```
+   *（或者直接使用传统的 `pip install -r requirements.txt`）*
+3. **运行程序**：
+   ```bash
+   python main.py
+   ```
 
-### 2.支持的变量占位符
-
-- `{input_v}` : 视频源文件路径
-- `{input_s}` : 字幕源文件路径（已自动处理Windows路径转义）
-- `{output_dir}` : 输出目录路径
-- `{filename}` : 输出文件名（不包含扩展名）
-- `{format}` : 输出文件格式（扩展名）
-
-### 3.支持强制格式语法
-
-在预设中可以使用 `{format:xxx}` 来强制指定输出格式，例如：
-
-``` txt
-{output_dir}/{filename}.{format:mkv}
-```
-
-### 4.核心路径规范
-
-请始终使用 `components/ffmpeg.exe` 来调用压制核心，软件会自动转换为绝对路径。 始终使用 `{output_dir}/{filename}.{format}` 组合指定输出路径。
-
-### 5.预设示例
-
-#### 默认预设（适合上传视频网站）
-
-``` txt
-# 适合上传视频网站：速度快，画质极高(CRF 18)，体积中等偏大，音频无损直通。
-components/ffmpeg.exe -i "{input_v}" -vf "subtitles={input_s}" -c:v libx264 -preset fast -crf 18 -c:a copy -y "{output_dir}/{filename}.{format}"
-```
-
-#### 收藏预设（适合本地收藏与BT分享）
-
-``` txt
-# 适合本地收藏与BT分享：采用 H.265 10bit 编码，体积小画质极佳，但压制速度较慢，音频无损直通。
-components/ffmpeg.exe -i "{input_v}" -vf "subtitles={input_s}" -c:v libx265 -preset slow -crf 20 -pix_fmt yuv420p10le -c:a copy -y "{output_dir}/{filename}.{format:mkv}"
-```
-
-#### 自定义预设
-
-1. 在 `presets/` 目录下创建新的 [.txt](file://c:\Users\timrt\Documents\02MyDevelopment\fast-embed-sub\presets\收藏.txt) 文件
-2. 按照预设格式编写备注和命令模板
-3. 重启程序即可在预设列表中看到新选项
+### 4. 编译打包说明 (`build.ps1`)
+项目根目录下提供了用于编译打包的 PowerShell 脚本 [build.ps1](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/build.ps1)。
+该脚本会：
+1. 自动调用 Nuitka 执行高性能 C 级编译打包。
+2. 自动拷贝必要的资源目录（如 `assets/`、`presets/` 等）至 `dist/` 文件夹下。
+3. **UPX 后压缩**：由于 Nuitka 4.x 不再内置 UPX 支持，脚本在打包完成后，会自动扫描 `dist/` 文件夹并调用系统 UPX 压缩除 `ffmpeg.exe` 之外的可执行文件与 DLL 动态链接库，大幅缩减发布包体积。

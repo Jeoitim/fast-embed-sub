@@ -20,6 +20,8 @@ pysidesix-frameless-window==0.8.1
     # via pyside6-fluent-widgets
 pywin32==312
     # via pysidesix-frameless-window
+pyyaml==6.0.3
+    # via fast-embed-sub (pyproject.toml)
 shiboken6==6.11.1
     # via
     #   pyside6

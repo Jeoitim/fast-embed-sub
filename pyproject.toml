@@ -8,4 +8,5 @@ dependencies = [
     "PySide6>=6.5.0",
     "PySide6-Fluent-Widgets>=1.3.0",
     "nuitka>=2.0",
+    "pyyaml",
 ]

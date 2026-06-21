@@ -1,39 +1,9 @@
-# 适合上传视频网站：速度快，画质极高(CRF 18)，体积中等偏大，音频无损直通。
-
-$custom-start
-parameters:
-  - id: flip_horizontal
-    name: 水平翻转 (Flip H)
-    type: bool
-    default: false
-    group: "几何变换"
-    order: 1
-    tooltip: "是否对画面进行水平镜像翻转"
-
-  - id: flip_vertical
-    name: 垂直翻转 (Flip V)
-    type: bool
-    default: false
-    group: "几何变换"
-    order: 2
-    tooltip: "是否对画面进行垂直倒置翻转"
-
-  - id: resize_scale
-    name: 画面缩放倍数
-    type: slider
-    default: "1.0"
-    options: ["1.0", "0.75", "0.5", "0.25"]
-    group: "尺寸调整"
-    order: 3
-    tooltip: "通过滑块调整画面分辨率比例（固定刻度）"
-$custom-end
-
-$vpy-start
+# 基础 VapourSynth 脚本模板 - 用于传统 FFmpeg 预设支持 VS 几何与尺寸变换
 import sys
 import vapoursynth as vs
 core = vs.core
 
-# 1. 载入视频 (尝试 ffms2 或 lsmash)
+# 1. 载入视频 (优先尝试 ffms2 或 lsmash)
 try:
     clip = core.ffms2.Source(source="{input_v}")
 except AttributeError:
@@ -75,6 +45,3 @@ if sub_path and not sub_path.endswith("empty.srt"):
 
 # 6. 输出
 clip.set_output()
-$vpy-end
-
-components/vspipe.exe -c y4m "{vpy_path}" - | components/ffmpeg.exe -y -i - -i "{input_v}" -map 0:v -map 1:a? -c:v libx264 -preset fast -crf 18 -c:a copy "{output_dir}/{filename}.{format}"

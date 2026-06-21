@@ -14,6 +14,8 @@ import re
 import ctypes
 
 from qfluentwidgets import LineEdit as FluentLineEdit, FluentIcon
+from vpy_param_widget import VpyPresetParamWidget
+
 
 TRANSLATIONS = {
     'zh': {
@@ -65,6 +67,7 @@ TRANSLATIONS = {
         'Completed': '已完成',
         'Cancelled': '已取消',
         'Failed': '失败',
+        'preset_param': '预设参数',
         
         # Dialogs
         'select_video_dialog_title': '选择视频',
@@ -140,6 +143,7 @@ TRANSLATIONS = {
         'Completed': 'Completed',
         'Cancelled': 'Cancelled',
         'Failed': 'Failed',
+        'preset_param': 'Preset Parameters',
         
         # Dialogs
         'select_video_dialog_title': 'Select Video',
@@ -242,6 +246,9 @@ class MainUI(QMainWindow):
         self.log_history = [] # 缓存历史日志
         self.log_buffer = []  # 日志缓冲区
         
+        # 预设参数面板组件初始化
+        self.vpy_param_widget = VpyPresetParamWidget(self)
+        
         # 定时刷新日志，降低 GUI 重绘频率，防止高频日志导致卡死
         self.log_timer = QTimer(self)
         self.log_timer.timeout.connect(self.flush_log_buffer)
@@ -255,6 +262,7 @@ class MainUI(QMainWindow):
         
         self.pages = {
             'home': None,
+            'preset_param': None,
             'log': None,
             'queue': None,
             'about': None
@@ -263,6 +271,10 @@ class MainUI(QMainWindow):
         self.navigation_interface.addItem(
             routeKey='home', icon=FluentIcon.HOME, text=self.t('home'),
             onClick=lambda: self.switch_to_page('home'), position=NavigationItemPosition.TOP
+        )
+        self.navigation_interface.addItem(
+            routeKey='preset_param', icon=FluentIcon.SETTING, text=self.t('preset_param'),
+            onClick=lambda: self.switch_to_page('preset_param'), position=NavigationItemPosition.TOP
         )
         self.navigation_interface.addItem(
             routeKey='queue', icon=FluentIcon.HISTORY, text=self.t('queue'),
@@ -284,6 +296,14 @@ class MainUI(QMainWindow):
             routeKey='about', icon=FluentIcon.INFO, text=self.t('about'),
             onClick=lambda: self.switch_to_page('about'), position=NavigationItemPosition.BOTTOM
         )
+        
+        # 确保参数调整侧边栏常驻
+        nav_item = self.navigation_interface.panel.items.get('preset_param')
+        if nav_item:
+            nav_item.widget.show()
+            
+        # 预先创建参数调整页面以防止组件浮动位置泄漏 bug
+        self.create_preset_param_page()
         
         # 构建右侧内容区（StackedWidget + 全局进度条）
         self.right_widget = QWidget()
@@ -673,6 +693,59 @@ class MainUI(QMainWindow):
         self.stacked_widget.addWidget(self.home_scroll)
         self.pages['home'] = self.home_scroll
  
+    def create_preset_param_page(self):
+        self.preset_param_scroll = self._ScrollArea()
+        self.preset_param_scroll.setObjectName("presetParamScroll")
+        self.preset_param_scroll.setWidgetResizable(True)
+        self.preset_param_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.preset_param_scroll.setStyleSheet("QScrollArea { background-color: transparent; border: none; }")
+
+        self.preset_param_widget_container = QWidget()
+        self.preset_param_widget_container.setObjectName("presetParamWidgetContainer")
+        self.preset_param_widget_container.setStyleSheet("QWidget#presetParamWidgetContainer { background: transparent; }")
+        self.preset_param_scroll.setWidget(self.preset_param_widget_container)
+
+        layout = QVBoxLayout(self.preset_param_widget_container)
+        layout.setContentsMargins(32, 24, 32, 24)
+        layout.setSpacing(24)
+
+        # Header Title and Subtitle (Generic custom parameters description)
+        title_layout = QHBoxLayout()
+        
+        title_container = QVBoxLayout()
+        title_container.setSpacing(4)
+        
+        title_label = self._TitleLabel(self.t("preset_param"))
+        title_label.setObjectName('appTitle')
+        
+        sub_text = "针对当前选择的预设进行自定义参数微调（不懂调节参数保持默认即可）" if self.lang == 'zh' else "Fine-tune custom parameters for the selected preset (keep defaults if you are unsure)"
+        subtitle_label = self._CaptionLabel(sub_text)
+        subtitle_label.setStyleSheet("color: #a0a0a0; font-size: 13px;")
+        
+        title_container.addWidget(title_label)
+        title_container.addWidget(subtitle_label)
+        title_layout.addLayout(title_container)
+        title_layout.addStretch()
+        
+        # 恢复默认按钮
+        self.btn_reset_params = self._PushButton("恢复默认" if self.lang == 'zh' else "Restore Defaults", self)
+        self.btn_reset_params.setIcon(FluentIcon.HISTORY)
+        self.btn_reset_params.clicked.connect(self.reset_params_action)
+        title_layout.addWidget(self.btn_reset_params)
+        
+        layout.addLayout(title_layout)
+
+        # Add vpy_param_widget directly to the page's layout
+        layout.addWidget(self.vpy_param_widget)
+        
+        layout.addStretch()
+
+        self.stacked_widget.addWidget(self.preset_param_scroll)
+        self.pages['preset_param'] = self.preset_param_scroll
+
+    def reset_params_action(self):
+        self.vpy_param_widget.reset_defaults()
+ 
     def create_log_page(self):
         self.log_widget = self._SimpleCardWidget()
         layout = QVBoxLayout(self.log_widget)
@@ -846,6 +919,8 @@ class MainUI(QMainWindow):
         if self.pages.get(name) is None:
             if name == 'home':
                 self.create_home_page()
+            elif name == 'preset_param':
+                self.create_preset_param_page()
             elif name == 'log':
                 self.create_log_page()
             elif name == 'queue':
@@ -863,7 +938,7 @@ class MainUI(QMainWindow):
         self.preset_combo.clear()
         
         presets = self.engine.get_presets()
-        for name, (desc, _) in presets.items():
+        for name, data in presets.items():
             translated_name = self.t(name)
             self.preset_combo.addItem(translated_name, userData=name)
             
@@ -886,16 +961,62 @@ class MainUI(QMainWindow):
         presets = self.engine.get_presets()
         current_name = self.preset_combo.currentData()
         if current_name in presets:
-            desc, template = presets[current_name]
+            data = presets[current_name]
+            desc = data.get("desc", "")
+            is_vpy = data.get("is_vpy", False)
+            cmd_template = data.get("cmd_template", "")
+            
             desc_key = f"{current_name}_desc"
             translated_desc = self.t(desc_key)
             if translated_desc == desc_key:
                 translated_desc = desc
             self.preset_desc.setText(f"{self.t('preset_desc_prefix')}{translated_desc}")
-            if re.search(r'\{format:([^}]+)\}', template):
+            
+            # 格式选择框状态
+            if cmd_template and re.search(r'\{format:([^}]+)\}', cmd_template):
                 self.format_combo.setEnabled(False)
             else:
                 self.format_combo.setEnabled(True)
+                
+            # 动态加载并确保参数调节 sidebar 常驻
+            nav_item = self.navigation_interface.panel.items.get('preset_param')
+            if nav_item:
+                nav_item.widget.show()
+                
+            params = data.get("metadata", {}).get("parameters", [])
+            if not params:
+                # 默认基础参数列表，使传统 ffmpeg 预设或无参预设也支持基础的 VapourSynth 几何变换与缩放
+                params = [
+                    {
+                        "id": "flip_horizontal",
+                        "name": "水平翻转 (Flip H)" if self.lang == 'zh' else "Horizontal Flip (Flip H)",
+                        "type": "bool",
+                        "default": False,
+                        "group": "几何变换" if self.lang == 'zh' else "Geometry",
+                        "order": 1,
+                        "tooltip": "是否对画面进行水平镜像翻转" if self.lang == 'zh' else "Whether to mirror the video horizontally"
+                    },
+                    {
+                        "id": "flip_vertical",
+                        "name": "垂直翻转 (Flip V)" if self.lang == 'zh' else "Vertical Flip (Flip V)",
+                        "type": "bool",
+                        "default": False,
+                        "group": "几何变换" if self.lang == 'zh' else "Geometry",
+                        "order": 2,
+                        "tooltip": "是否对画面进行垂直倒置翻转" if self.lang == 'zh' else "Whether to flip the video vertically"
+                    },
+                    {
+                        "id": "resize_scale",
+                        "name": "画面缩放倍数" if self.lang == 'zh' else "Resize Scale",
+                        "type": "slider",
+                        "default": "1.0",
+                        "options": ["1.0", "0.75", "0.5", "0.25"],
+                        "group": "尺寸调整" if self.lang == 'zh' else "Resize",
+                        "order": 3,
+                        "tooltip": "通过滑块调整画面分辨率比例（固定刻度）" if self.lang == 'zh' else "Scale the video resolution (fixed scales)"
+                    }
+                ]
+            self.vpy_param_widget.load_params(params)
 
     def on_video_changed(self, video_path):
         if not video_path or not os.path.isfile(video_path): return
@@ -1006,13 +1127,11 @@ class MainUI(QMainWindow):
         current_preset = self.preset_combo.currentData()
         presets = self.engine.get_presets()
         if current_preset in presets:
-            template = presets[current_preset][1]
             try:
-                if not sub:
-                    template = re.sub(r'-vf\s+"subtitles=\'\{input_s\}\'"', '', template)
-                    template = re.sub(r'\s+', ' ', template).strip()
+                # 收集 VapourSynth 的动态参数值
+                param_values = self.vpy_param_widget.get_values() if hasattr(self, 'vpy_param_widget') else None
                 
-                task = self.engine.add_to_queue(template, video, sub, output_dir, filename, format_val, current_preset)
+                task = self.engine.add_to_queue(video, sub, output_dir, filename, format_val, current_preset, param_values)
                 self.switch_to_page('queue')
                 self.navigation_interface.setCurrentItem('queue')
                 self.create_task_widget(task)
