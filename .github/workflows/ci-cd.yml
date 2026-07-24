@@ -72,7 +72,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pillow
 
-      - name: Install NSIS
+      # build.ps1 currently requires NSIS even when the CI artifact is Portable-Core.
+      # The generated installer is intentionally not uploaded or released by CI.
+      - name: Install NSIS (build script prerequisite)
         shell: pwsh
         run: choco install nsis -y --no-progress
 
@@ -93,9 +95,7 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Test-Path outputs\main.dist\FastEmbedSub.exe)) { throw 'FastEmbedSub.exe missing' }
-          $installer = Get-ChildItem outputs -Filter 'FastEmbedSub_v*_Setup.exe' | Select-Object -First 1
-          if (-not $installer) { throw 'NSIS installer missing' }
-          Get-FileHash $installer.FullName -Algorithm SHA256
+          Get-Item outputs\main.dist\FastEmbedSub.exe | Select-Object FullName,Length
 
       - name: Create portable 7z archive
         shell: pwsh
@@ -107,7 +107,7 @@ jobs:
           } else {
             $version = '1.0.1'
           }
-          $portableName = "FastEmbedSub_v${version}_Portable"
+          $portableName = "FastEmbedSub_v${version}_Portable-Core"
           $portableDir = Join-Path 'outputs' $portableName
           $archiveName = "${portableName}.7z"
           $archive = Join-Path 'outputs' $archiveName
@@ -127,39 +127,10 @@ jobs:
           Remove-Item $portableDir -Recurse -Force
           Get-FileHash $archive -Algorithm SHA256
 
-      - name: Upload installer artifact
+      - name: Upload Portable-Core artifact
         uses: actions/upload-artifact@v6
         with:
-          name: FastEmbedSub-windows-installer
+          name: FastEmbedSub-windows-portable-core
           path: |
-            outputs/FastEmbedSub_v*_Setup.exe
-            outputs/FastEmbedSub_v*_Portable.7z
+            outputs/FastEmbedSub_v*_Portable-Core.7z
           if-no-files-found: error
-
-  release:
-    name: Create GitHub Release
-    if: (github.event_name == 'workflow_dispatch' && inputs.release_tag != '') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
-    needs: package
-    runs-on: windows-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Download installer artifact
-        uses: actions/download-artifact@v6
-        with:
-          name: FastEmbedSub-windows-installer
-          path: release-assets
-
-      - name: Publish release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $releaseTag = if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') { '${{ inputs.release_tag }}' } else { $env:GITHUB_REF_NAME }
-          $assets = Get-ChildItem release-assets -File
-          if (-not $assets) { throw 'Release assets missing' }
-          gh release create $releaseTag --repo $env:GITHUB_REPOSITORY $assets.FullName --title "FastEmbedSub $releaseTag" --generate-notes
