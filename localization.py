@@ -34,8 +34,9 @@ class TranslationManager(QObject):
         super().__init__(app)
         self._app = app
         self._translator: QTranslator | None = None
-        self._language = "en"
-        self.set_language(language)
+        self._language = ""
+        if not self.set_language(language):
+            self.set_language("en")
 
     @property
     def language(self) -> str:
@@ -43,24 +44,29 @@ class TranslationManager(QObject):
 
     def set_language(self, language: str) -> bool:
         language = language if language in SUPPORTED_LANGUAGES else "zh"
-        self._language = language
-        if self._translator is not None:
-            self._app.removeTranslator(self._translator)
-            self._translator.deleteLater()
-            self._translator = None
+        if language == self._language:
+            return True
 
-        loaded = True
+        translator = None
         if language != "en":
             translator = QTranslator(self)
             qm_path = application_dir() / "i18n" / f"fast_embed_sub_{SUPPORTED_LANGUAGES[language]}.qm"
-            loaded = translator.load(os.fspath(qm_path))
-            if loaded:
-                self._app.installTranslator(translator)
-                self._translator = translator
+            if not translator.load(os.fspath(qm_path)):
+                translator.deleteLater()
+                return False
+
+        self._language = language
+        old_translator = self._translator
+        self._translator = translator
+        if old_translator is not None:
+            self._app.removeTranslator(old_translator)
+            old_translator.deleteLater()
+        if translator is not None:
+            self._app.installTranslator(translator)
 
         QLocale.setDefault(QLocale(SUPPORTED_LANGUAGES[language]))
         self.language_changed.emit(language)
-        return loaded
+        return True
 
 
 def translate_log_event(event, **param_overrides) -> str:

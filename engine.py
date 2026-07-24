@@ -607,8 +607,8 @@ class TranscodeEngine(QObject):
         for task in self.queue:
             if task.task_id == task_id:
                 if task.status is TaskStatus.ENCODING:
-                    self.process.kill()  # 触发 on_process_finished
                     task.status = TaskStatus.CANCELLED
+                    self.process.kill()  # 触发 on_process_finished
                     self._cleanup_temp_vpy(task)
                     QTimer.singleShot(100, lambda: self._delete_unfinished_file(task))
                 elif task.status is TaskStatus.WAITING:
@@ -620,8 +620,8 @@ class TranscodeEngine(QObject):
     def clear_queue(self):
         """清空所有任务。如果有正在运行的任务，取消并终止进程。"""
         if self.current_task and self.current_task.status is TaskStatus.ENCODING:
-            self.process.kill()
             self.current_task.status = TaskStatus.CANCELLED
+            self.process.kill()
             self._cleanup_temp_vpy(self.current_task)
             self._delete_unfinished_file(self.current_task)
         self.queue.clear()
@@ -642,7 +642,8 @@ class TranscodeEngine(QObject):
         self.log_message.emit(LogEvent(message_key, color or "", kwargs, translatable))
 
     def on_process_started(self):
-        self.task_status_changed.emit(self.current_task.task_id)
+        if self.current_task is not None:
+            self.task_status_changed.emit(self.current_task.task_id)
 
     def on_process_finished(self, exit_code, exit_status):
         if self.current_task:

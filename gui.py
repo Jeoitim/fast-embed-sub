@@ -9,13 +9,14 @@ from PySide6.QtWidgets import (QVBoxLayout, QHBoxLayout, QGridLayout,
                                QWidget, QFrame)
 from PySide6.QtGui import QIcon, QDragEnterEvent, QDropEvent
 from PySide6.QtCore import QEvent, Qt, QTimer, QSettings
+from collections import deque
 import os
 import re
 import ctypes
 
 from qfluentwidgets import LineEdit as FluentLineEdit, FluentIcon
 from engine import TaskStatus
-from localization import translate_engine_error, translate_log_event
+from localization import application_dir, translate_engine_error, translate_log_event
 from vpy_param_widget import VpyPresetParamWidget
 
 class DragDropLineEdit(FluentLineEdit):
@@ -49,11 +50,9 @@ class MainUI(QMainWindow):
         from qfluentwidgets import (
             ComboBox, PushButton, PrimaryPushButton, ToolButton, HyperlinkButton, TextEdit, ProgressBar,
             LineEdit, BodyLabel, StrongBodyLabel, CaptionLabel, TitleLabel, SubtitleLabel,
-            MessageBox, setTheme, Theme, SimpleCardWidget, CardWidget, NavigationInterface,
+            MessageBox, SimpleCardWidget, CardWidget, NavigationInterface,
             NavigationItemPosition, ScrollArea
         )
-        setTheme(Theme.DARK)
-        
         # 保存组件引用
         self._ComboBox = ComboBox
         self._PushButton = PushButton
@@ -81,7 +80,7 @@ class MainUI(QMainWindow):
         self.setWindowTitle("Fast Embed Sub")
         self.resize(950, 650)
         
-        icon_path = os.path.join("assets", "icon.png")
+        icon_path = os.fspath(application_dir() / "assets" / "icon.png")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
 
@@ -91,8 +90,9 @@ class MainUI(QMainWindow):
         self.engine.task_status_changed.connect(self.update_task_ui)
         self.engine.log_message.connect(self._on_log_message)
         self.task_widgets = {} # 存储队列UI卡片的字典
-        self.log_history = [] # 缓存历史日志
+        self.log_history = deque(maxlen=2000)  # 与日志文档最大块数保持一致
         self.log_buffer = []  # 日志缓冲区
+        self._presets = {}
         
         # 预设参数面板组件初始化
         self.vpy_param_widget = VpyPresetParamWidget(self)
@@ -179,7 +179,7 @@ class MainUI(QMainWindow):
         layout.addWidget(self.right_widget)
         self.setCentralWidget(central_widget)
         
-        self.set_dark_mode_style()
+        self._apply_current_theme()
         self.switch_to_page('home')
         
         # 延迟 100ms 加载预设，提高首屏渲染响应度
@@ -207,15 +207,18 @@ class MainUI(QMainWindow):
         else:
             self.log_timer.stop()
             event.accept()
-        from qfluentwidgets import isDarkTheme
-        if isDarkTheme():
-            self.set_dark_mode_style()
-        else:
-            self.set_light_mode_style()
-
     def toggle_theme(self):
         from qfluentwidgets import toggleTheme, isDarkTheme
         toggleTheme()
+        if isDarkTheme():
+            self.settings.setValue("theme", "dark")
+            self.set_dark_mode_style()
+        else:
+            self.settings.setValue("theme", "light")
+            self.set_light_mode_style()
+
+    def _apply_current_theme(self):
+        from qfluentwidgets import isDarkTheme
         if isDarkTheme():
             self.set_dark_mode_style()
         else:
@@ -223,8 +226,10 @@ class MainUI(QMainWindow):
 
     def toggle_language(self):
         language = 'en' if self.lang == 'zh' else 'zh'
-        self.settings.setValue("language", language)
-        self.i18n.set_language(language)
+        if self.i18n.set_language(language):
+            self.settings.setValue("language", language)
+        else:
+            self.show_critical(self.tr("Error"), self.tr("Could not load translation resources."))
 
     def _on_language_changed(self, language):
         if language == self.lang:
@@ -348,9 +353,8 @@ class MainUI(QMainWindow):
                 border: 1px solid rgba(255, 255, 255, 0.12);
             }
         ''')
-        try:
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(int(self.winId()), 20, ctypes.byref(ctypes.c_int(1)), 4)
-        except: pass
+        self._apply_log_theme(dark=True)
+        self._set_windows_title_bar_theme(dark=True)
 
     def set_light_mode_style(self):
         self.setStyleSheet('''
@@ -389,9 +393,28 @@ class MainUI(QMainWindow):
                 border: 1px solid rgba(0, 0, 0, 0.08);
             }
         ''')
+        self._apply_log_theme(dark=False)
+        self._set_windows_title_bar_theme(dark=False)
+
+    def _apply_log_theme(self, dark):
+        if not hasattr(self, "log_output"):
+            return
+        if dark:
+            colors = "background-color: #1e1e1e; color: #d4d4d4; border: 1px solid #333333;"
+        else:
+            colors = "background-color: #ffffff; color: #202020; border: 1px solid #d6d6d6;"
+        self.log_output.setStyleSheet(f"{colors} font-family: Consolas;")
+
+    def _set_windows_title_bar_theme(self, dark):
+        if os.name != "nt":
+            return
         try:
-            ctypes.windll.dwmapi.DwmSetWindowAttribute(int(self.winId()), 20, ctypes.byref(ctypes.c_int(0)), 4)
-        except: pass
+            enabled = ctypes.c_int(1 if dark else 0)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                int(self.winId()), 20, ctypes.byref(enabled), ctypes.sizeof(enabled)
+            )
+        except (AttributeError, OSError, ValueError):
+            pass
 
     # ================= UI 页面创建 =================
 
@@ -416,7 +439,7 @@ class MainUI(QMainWindow):
         header = QHBoxLayout()
         header.setSpacing(12)
         
-        icon_path = os.path.join("assets", "icon.png")
+        icon_path = os.fspath(application_dir() / "assets" / "icon.png")
         if os.path.exists(icon_path):
             logo = self._Label()
             logo.setPixmap(QIcon(icon_path).pixmap(36, 36))
@@ -647,8 +670,9 @@ class MainUI(QMainWindow):
         self.log_output.setReadOnly(True)
         # 限制日志框最大行数，防止长时间运行内存占用过多及界面卡死
         self.log_output.document().setMaximumBlockCount(2000)
-        # 保持终端控制台风格
-        self.log_output.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; font-family: Consolas;")
+        # 保持终端控制台风格，并跟随当前主题。
+        from qfluentwidgets import isDarkTheme
+        self._apply_log_theme(dark=isDarkTheme())
         layout.addWidget(self.log_output)
         
         # 填充历史日志
@@ -846,6 +870,7 @@ class MainUI(QMainWindow):
         self.preset_combo.clear()
         
         presets = self.engine.get_presets()
+        self._presets = presets
         for name, data in presets.items():
             # 优先从 YAML 的 locales 结构中获取本地化名称
             metadata = data.get("metadata", {})
@@ -870,7 +895,7 @@ class MainUI(QMainWindow):
                 self.preset_combo.setCurrentIndex(0)
  
     def update_preset_desc(self):
-        presets = self.engine.get_presets()
+        presets = self._presets or self.engine.get_presets()
         current_name = self.preset_combo.currentData()
         if current_name in presets:
             preserved_values = None
@@ -1145,7 +1170,7 @@ class MainUI(QMainWindow):
             return
 
         current_preset = self.preset_combo.currentData()
-        presets = self.engine.get_presets()
+        presets = self._presets or self.engine.get_presets()
         if current_preset in presets:
             try:
                 # 收集 VapourSynth 的动态参数值
@@ -1242,7 +1267,10 @@ class MainUI(QMainWindow):
                 self.global_progress.setValue(0)
 
     def _localized_preset_name(self, preset_name):
-        preset = self.engine.get_presets().get(preset_name, {})
+        preset = self._presets.get(preset_name, {})
+        if not preset:
+            self._presets = self.engine.get_presets()
+            preset = self._presets.get(preset_name, {})
         metadata = preset.get("metadata", {}) if isinstance(preset, dict) else {}
         locales = metadata.get("locales", {}) if isinstance(metadata, dict) else {}
         language_data = locales.get(self.lang, {}) if isinstance(locales, dict) else {}

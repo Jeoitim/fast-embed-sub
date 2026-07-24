@@ -54,7 +54,8 @@ def main():
         )
         sys.exit(1)
         
-    setTheme(Theme.DARK)
+    saved_theme = str(settings.value("theme", "dark")).lower()
+    setTheme(Theme.LIGHT if saved_theme == "light" else Theme.DARK)
     
     if splash:
         splash.showMessage(
