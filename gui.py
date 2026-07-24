@@ -8,139 +8,15 @@ from PySide6.QtWidgets import (QVBoxLayout, QHBoxLayout, QGridLayout,
                                QFileDialog, QSizePolicy, QMainWindow,
                                QWidget, QFrame)
 from PySide6.QtGui import QIcon, QDragEnterEvent, QDropEvent
-from PySide6.QtCore import Qt, QTimer, QSettings
+from PySide6.QtCore import QEvent, Qt, QTimer, QSettings
 import os
 import re
 import ctypes
 
 from qfluentwidgets import LineEdit as FluentLineEdit, FluentIcon
+from engine import TaskStatus
+from localization import translate_engine_error, translate_log_event
 from vpy_param_widget import VpyPresetParamWidget
-
-
-TRANSLATIONS = {
-    'zh': {
-        'home': '主页',
-        'queue': '任务队列',
-        'log': '日志',
-        'theme': '切换主题',
-        'language': 'English',
-        'about': '关于',
-        'app_subtitle': '轻量级、极速的字幕视频压制工具',
-        'media_sub_sources': '媒体与字幕源',
-        'video_source': '视频源文件',
-        'video_placeholder': '选择或直接拖入视频文件...',
-        'sub_source': '字幕源文件',
-        'sub_placeholder': '选择字幕文件 (支持自动检测同名 SRT / ASS / SSA)...',
-        'output_settings': '输出与编码设置',
-        'output_dir': '输出保存目录',
-        'output_dir_placeholder': '默认保存到视频文件同目录...',
-        'output_filename': '输出文件名',
-        'filename_placeholder': '默认使用输入文件名...',
-        'format': '封装格式',
-        'preset': '压制预设',
-        'preset_desc_default': '预设说明：请选择预设',
-        'preset_desc_prefix': '预设说明：',
-        'add_to_queue': '加入任务队列',
-        'log_output': '日志输出',
-        'export_log': '导出日志',
-        'clear_queue': '清空队列',
-        'empty_queue_confirm_running': '当前有正在处理的任务，清空队列将取消当前正在压制的任务，确定继续吗？',
-        'empty_queue_confirm_all': '确定要清空队列中的所有任务吗？',
-        'warning': '警告',
-        'info': '提示',
-        'error': '错误',
-        'select_video_warning': '请确保已选择视频文件',
-        'output_exists_warning': '输出文件已存在：\n{path}\n\n请更改文件名或输出目录后再试。',
-        'about_software': '关于软件',
-        'author': '作者:',
-        'github': 'GitHub:',
-        'license': '许可证:',
-        'deps_thanks': '技术依赖与致谢',
-        'pyside_desc': '• <b>PySide6</b>: Qt 6 官方 Python 绑定',
-        'pysf_desc': '• <b>PySide6-Fluent-Widgets</b>: 微软 Fluent 设计风格组件库',
-        'ffmpeg_desc': '• <b>FFmpeg 项目</b>: 极速且强大的音视频核心编解码库',
-        'vapoursynth_desc': '• <b>VapourSynth</b>: 现代开源视频处理与滤镜框架项目',
-        'official_link': '官方链接',
-        'special_thanks': '特别鸣谢：感谢所有开源社区贡献者对本项目及依赖库的支持。',
-        'exit_confirm': '当前有任务正在压制，确定要退出并取消任务吗？',
-        'Waiting': '等待中',
-        'Encoding': '压制中',
-        'Completed': '已完成',
-        'Cancelled': '已取消',
-        'Failed': '失败',
-        'preset_param': '预设参数',
-        
-        # Dialogs
-        'select_video_dialog_title': '选择视频',
-        'video_file_filter': '视频 (*.mp4 *.mov *.mkv)',
-        'select_sub_dialog_title': '选择字幕',
-        'sub_file_filter': '字幕 (*.srt *.ass *.ssa)',
-        'select_output_dir_dialog_title': '选择输出目录',
-        'export_log_dialog_title': '导出日志',
-        'text_file_filter': '文本文件 (*.txt)',
-    },
-    'en': {
-        'home': 'Home',
-        'queue': 'Task Queue',
-        'log': 'Log',
-        'theme': 'Toggle Theme',
-        'language': '简体中文',
-        'about': 'About',
-        'app_subtitle': 'Lightweight & high-speed subtitle embed tool',
-        'media_sub_sources': 'Media & Subtitle Sources',
-        'video_source': 'Source Video File',
-        'video_placeholder': 'Select or drag & drop video file here...',
-        'sub_source': 'Source Subtitle File',
-        'sub_placeholder': 'Select subtitle file (auto-detect same-named SRT/ASS/SSA supported)...',
-        'output_settings': 'Output & Encoding Settings',
-        'output_dir': 'Output Saving Directory',
-        'output_dir_placeholder': 'Default to the same directory as the source video...',
-        'output_filename': 'Output Filename',
-        'filename_placeholder': 'Default to input filename...',
-        'format': 'Container Format',
-        'preset': 'Encoding Preset',
-        'preset_desc_default': 'Preset description: Please select a preset',
-        'preset_desc_prefix': 'Preset description: ',
-        'add_to_queue': 'Add to Task Queue',
-        'log_output': 'Log Output',
-        'export_log': 'Export Log',
-        'clear_queue': 'Clear Queue',
-        'empty_queue_confirm_running': 'Active tasks are in progress. Clearing the queue will cancel them. Do you want to continue?',
-        'empty_queue_confirm_all': 'Are you sure you want to clear all tasks from the queue?',
-        'warning': 'Warning',
-        'info': 'Info',
-        'error': 'Error',
-        'select_video_warning': 'Please make sure a video file is selected.',
-        'output_exists_warning': 'Output file already exists:\n{path}\n\nPlease change the filename or output directory and try again.',
-        'about_software': 'About Software',
-        'author': 'Author:',
-        'github': 'GitHub:',
-        'license': 'License:',
-        'deps_thanks': 'Dependencies & Acknowledgements',
-        'pyside_desc': '• <b>PySide6</b>: Official Python bindings for Qt 6',
-        'pysf_desc': '• <b>PySide6-Fluent-Widgets</b>: Fluent design widgets library for PySide6',
-        'ffmpeg_desc': '• <b>FFmpeg Project</b>: Fast and powerful audio/video codec library',
-        'vapoursynth_desc': '• <b>VapourSynth</b>: A modern open-source video processing and filtering application/framework',
-        'official_link': 'Official Link',
-        'special_thanks': 'Special thanks to all open-source community contributors for supporting this project and its dependencies.',
-        'exit_confirm': 'A task is currently encoding. Are you sure you want to exit and cancel it?',
-        'Waiting': 'Waiting',
-        'Encoding': 'Encoding',
-        'Completed': 'Completed',
-        'Cancelled': 'Cancelled',
-        'Failed': 'Failed',
-        'preset_param': 'Preset Parameters',
-        
-        # Dialogs
-        'select_video_dialog_title': 'Select Video',
-        'video_file_filter': 'Video Files (*.mp4 *.mov *.mkv)',
-        'select_sub_dialog_title': 'Select Subtitles',
-        'sub_file_filter': 'Subtitle Files (*.srt *.ass *.ssa)',
-        'select_output_dir_dialog_title': 'Select Output Directory',
-        'export_log_dialog_title': 'Export Log',
-        'text_file_filter': 'Text Files (*.txt)',
-    }
-}
 
 class DragDropLineEdit(FluentLineEdit):
     def __init__(self, parent=None):
@@ -166,8 +42,9 @@ class DragDropLineEdit(FluentLineEdit):
 
 
 class MainUI(QMainWindow):
-    def __init__(self):
+    def __init__(self, translation_manager):
         super().__init__()
+        self.i18n = translation_manager
 
         from qfluentwidgets import (
             ComboBox, PushButton, PrimaryPushButton, ToolButton, HyperlinkButton, TextEdit, ProgressBar,
@@ -198,7 +75,8 @@ class MainUI(QMainWindow):
 
         # Initialize translation settings
         self.settings = QSettings("Jeoitim", "FastEmbedSub")
-        self.lang = self.settings.value("language", "zh")
+        self.lang = self.i18n.language
+        self.i18n.language_changed.connect(self._on_language_changed)
 
         self.setWindowTitle("Fast Embed Sub")
         self.resize(950, 650)
@@ -210,7 +88,6 @@ class MainUI(QMainWindow):
         # ====== 核心初始化：引擎与信号 ======
         from engine import TranscodeEngine
         self.engine = TranscodeEngine()
-        self.engine.lang = self.lang
         self.engine.task_status_changed.connect(self.update_task_ui)
         self.engine.log_message.connect(self._on_log_message)
         self.task_widgets = {} # 存储队列UI卡片的字典
@@ -219,6 +96,7 @@ class MainUI(QMainWindow):
         
         # 预设参数面板组件初始化
         self.vpy_param_widget = VpyPresetParamWidget(self)
+        self._loaded_param_preset = None
         
         # 定时刷新日志，降低 GUI 重绘频率，防止高频日志导致卡死
         self.log_timer = QTimer(self)
@@ -240,31 +118,31 @@ class MainUI(QMainWindow):
         }
         
         self.navigation_interface.addItem(
-            routeKey='home', icon=FluentIcon.HOME, text=self.t('home'),
+            routeKey='home', icon=FluentIcon.HOME, text=self.tr('Home'),
             onClick=lambda: self.switch_to_page('home'), position=NavigationItemPosition.TOP
         )
         self.navigation_interface.addItem(
-            routeKey='preset_param', icon=FluentIcon.SETTING, text=self.t('preset_param'),
+            routeKey='preset_param', icon=FluentIcon.SETTING, text=self.tr('Preset Parameters'),
             onClick=lambda: self.switch_to_page('preset_param'), position=NavigationItemPosition.TOP
         )
         self.navigation_interface.addItem(
-            routeKey='queue', icon=FluentIcon.HISTORY, text=self.t('queue'),
+            routeKey='queue', icon=FluentIcon.HISTORY, text=self.tr('Task Queue'),
             onClick=lambda: self.switch_to_page('queue'), position=NavigationItemPosition.TOP
         )
         self.navigation_interface.addItem(
-            routeKey='log', icon=FluentIcon.PRINT, text=self.t('log'),
+            routeKey='log', icon=FluentIcon.PRINT, text=self.tr('Log'),
             onClick=lambda: self.switch_to_page('log'), position=NavigationItemPosition.TOP
         )
         self.navigation_interface.addItem(
-            routeKey='theme', icon=FluentIcon.BRIGHTNESS, text=self.t('theme'),
+            routeKey='theme', icon=FluentIcon.BRIGHTNESS, text=self.tr('Toggle Theme'),
             onClick=self.toggle_theme, position=NavigationItemPosition.BOTTOM
         )
         self.navigation_interface.addItem(
-            routeKey='language', icon=FluentIcon.GLOBE, text=self.t('language'),
+            routeKey='language', icon=FluentIcon.GLOBE, text=self.tr('Simplified Chinese'),
             onClick=self.toggle_language, position=NavigationItemPosition.BOTTOM
         )
         self.navigation_interface.addItem(
-            routeKey='about', icon=FluentIcon.INFO, text=self.t('about'),
+            routeKey='about', icon=FluentIcon.INFO, text=self.tr('About'),
             onClick=lambda: self.switch_to_page('about'), position=NavigationItemPosition.BOTTOM
         )
         
@@ -313,7 +191,11 @@ class MainUI(QMainWindow):
     def closeEvent(self, event):
         # 退出前确保杀死所有正在运行的转码进程，防止 ffmpeg 变成后台僵尸进程
         if self.engine and self.engine.current_task:
-            reply = self._MessageBox(self.t("info"), self.t("exit_confirm"), self)
+            reply = self._MessageBox(
+                self.tr("Information"),
+                self.tr("A task is currently encoding. Exit and cancel it?"),
+                self,
+            )
             if reply.exec():
                 self.log_timer.stop()
                 self.engine.cancel_task(self.engine.current_task.task_id)
@@ -339,73 +221,95 @@ class MainUI(QMainWindow):
         else:
             self.set_light_mode_style()
 
-    def t(self, key):
-        return TRANSLATIONS[self.lang].get(key, key)
-
     def toggle_language(self):
-        self.lang = 'en' if self.lang == 'zh' else 'zh'
-        self.engine.lang = self.lang
-        self.settings.setValue("language", self.lang)
+        language = 'en' if self.lang == 'zh' else 'zh'
+        self.settings.setValue("language", language)
+        self.i18n.set_language(language)
+
+    def _on_language_changed(self, language):
+        if language == self.lang:
+            return
+        self.lang = language
         self.retranslate_ui()
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.LanguageChange and hasattr(self, "navigation_interface"):
+            self._on_language_changed(self.i18n.language)
 
     def retranslate_ui(self):
         self.setWindowTitle("Fast Embed Sub")
-        self.navigation_interface.widget('home').setText(self.t('home'))
-        self.navigation_interface.widget('queue').setText(self.t('queue'))
-        self.navigation_interface.widget('log').setText(self.t('log'))
-        self.navigation_interface.widget('theme').setText(self.t('theme'))
-        self.navigation_interface.widget('language').setText(self.t('language'))
-        self.navigation_interface.widget('about').setText(self.t('about'))
+        self.navigation_interface.widget('home').setText(self.tr('Home'))
+        self.navigation_interface.widget('queue').setText(self.tr('Task Queue'))
+        self.navigation_interface.widget('log').setText(self.tr('Log'))
+        self.navigation_interface.widget('theme').setText(self.tr('Toggle Theme'))
+        self.navigation_interface.widget('language').setText(self.tr('Simplified Chinese'))
+        self.navigation_interface.widget('about').setText(self.tr('About'))
         
         if self.pages.get('home') is not None:
-            self.lbl_subtitle.setText(self.t('app_subtitle'))
-            self.lbl_input_title.setText(self.t('media_sub_sources'))
-            self.lbl_video_label.setText(self.t('video_source'))
-            self.video_input.setPlaceholderText(self.t('video_placeholder'))
-            self.lbl_sub_label.setText(self.t('sub_source'))
-            self.sub_input.setPlaceholderText(self.t('sub_placeholder'))
-            self.lbl_output_title.setText(self.t('output_settings'))
-            self.lbl_output_dir_label.setText(self.t('output_dir'))
-            self.output_input.setPlaceholderText(self.t('output_dir_placeholder'))
-            self.lbl_filename_label.setText(self.t('output_filename'))
-            self.filename_input.setPlaceholderText(self.t('filename_placeholder'))
-            self.lbl_format_label.setText(self.t('format'))
-            self.lbl_preset_label.setText(self.t('preset'))
-            self.btn_start.setText(self.t('add_to_queue'))
+            self.lbl_subtitle.setText(self.tr('Lightweight and fast subtitle embedding tool'))
+            self.lbl_input_title.setText(self.tr('Media and Subtitle Sources'))
+            self.lbl_video_label.setText(self.tr('Source Video File'))
+            self.video_input.setPlaceholderText(self.tr('Select or drag a video file here...'))
+            self.lbl_sub_label.setText(self.tr('Source Subtitle File'))
+            self.sub_input.setPlaceholderText(
+                self.tr('Select a subtitle file (supports same-name SRT, ASS, or SSA detection)...')
+            )
+            self.lbl_output_title.setText(self.tr('Output and Encoding Settings'))
+            self.lbl_output_dir_label.setText(self.tr('Output Directory'))
+            self.output_input.setPlaceholderText(self.tr('Defaults to the source video directory...'))
+            self.lbl_filename_label.setText(self.tr('Output Filename'))
+            self.filename_input.setPlaceholderText(self.tr('Defaults to the input filename...'))
+            self.lbl_format_label.setText(self.tr('Container Format'))
+            self.lbl_preset_label.setText(self.tr('Encoding Preset'))
+            self.btn_start.setText(self.tr('Add to Task Queue'))
             self.load_presets()
             
         if self.pages.get('log') is not None:
-            self.lbl_log_title.setText(self.t('log_output'))
-            self.btn_export_log.setText(self.t('export_log'))
+            self.lbl_log_title.setText(self.tr('Log Output'))
+            self.btn_export_log.setText(self.tr('Export Log'))
+            self.log_buffer.clear()
+            self.log_output.clear()
+            for event in self.log_history:
+                self.log_output.append(self._render_log_event(event))
             
         if self.pages.get('queue') is not None:
-            self.lbl_queue_title.setText(self.t('queue'))
-            self.btn_clear_queue.setText(self.t('clear_queue'))
+            self.lbl_queue_title.setText(self.tr('Task Queue'))
+            self.btn_clear_queue.setText(self.tr('Clear Queue'))
             for task_id in list(self.task_widgets.keys()):
                 self.update_task_ui(task_id)
                 
         if 'preset_param' in self.pages:
-            self.navigation_interface.widget('preset_param').setText(self.t('preset_param'))
-            self.preset_param_title_label.setText(self.t('preset_param'))
-            sub_text = "针对当前选择的预设进行自定义参数微调（不懂调节参数保持默认即可）" if self.lang == 'zh' else "Fine-tune custom parameters for the selected preset (keep defaults if you are unsure)"
-            self.preset_param_subtitle_label.setText(sub_text)
-            self.btn_reset_params.setText("恢复默认" if self.lang == 'zh' else "Restore Defaults")
+            self.navigation_interface.widget('preset_param').setText(self.tr('Preset Parameters'))
+            self.preset_param_title_label.setText(self.tr('Preset Parameters'))
+            self.preset_param_subtitle_label.setText(
+                self.tr('Fine-tune the selected preset (keep the defaults if you are unsure)')
+            )
+            self.btn_reset_params.setText(self.tr('Restore Defaults'))
             # Force parameters reload to translate parameter widgets
             self.update_preset_desc()
                 
         if self.pages.get('about') is not None:
-            self.lbl_info_title.setText(self.t('about_software'))
-            self.lbl_author_label.setText(self.t('author'))
-            self.lbl_github_label.setText(self.t('github'))
-            self.lbl_license_label.setText(self.t('license'))
-            self.lbl_deps_title.setText(self.t('deps_thanks'))
-            self.lbl_pyside_desc.setText(self.t('pyside_desc'))
-            self.lbl_pysf_desc.setText(self.t('pysf_desc'))
-            self.lbl_ffmpeg_desc.setText(self.t('ffmpeg_desc'))
-            self.btn_pyside_link.setText(self.t('official_link'))
-            self.btn_pysf_link.setText(self.t('official_link'))
-            self.btn_ffmpeg_link.setText(self.t('official_link'))
-            self.lbl_special_thanks.setText(self.t('special_thanks'))
+            self.lbl_info_title.setText(self.tr('About Software'))
+            self.lbl_author_label.setText(self.tr('Author:'))
+            self.lbl_github_label.setText(self.tr('GitHub:'))
+            self.lbl_license_label.setText(self.tr('License:'))
+            self.lbl_deps_title.setText(self.tr('Dependencies and Acknowledgements'))
+            self.lbl_pyside_desc.setText(self.tr('• <b>PySide6</b>: Official Python bindings for Qt 6'))
+            self.lbl_pysf_desc.setText(
+                self.tr('• <b>PySide6-Fluent-Widgets</b>: Fluent Design widgets for PySide6')
+            )
+            self.lbl_ffmpeg_desc.setText(self.tr('• <b>FFmpeg</b>: Fast and powerful audio/video codecs'))
+            self.lbl_vs_desc.setText(
+                self.tr('• <b>VapourSynth</b>: Modern open-source video processing framework')
+            )
+            self.btn_pyside_link.setText(self.tr('Official Link'))
+            self.btn_pysf_link.setText(self.tr('Official Link'))
+            self.btn_ffmpeg_link.setText(self.tr('Official Link'))
+            self.btn_vs_link.setText(self.tr('Official Link'))
+            self.lbl_special_thanks.setText(
+                self.tr('Special thanks to all open-source contributors supporting this project and its dependencies.')
+            )
 
     def set_dark_mode_style(self):
         self.setStyleSheet('''
@@ -523,7 +427,7 @@ class MainUI(QMainWindow):
         
         title_label = self._TitleLabel("Fast Embed Sub")
         title_label.setObjectName('appTitle')
-        self.lbl_subtitle = self._CaptionLabel(self.t("app_subtitle"))
+        self.lbl_subtitle = self._CaptionLabel(self.tr("Lightweight and fast subtitle embedding tool"))
         self.lbl_subtitle.setStyleSheet("color: #a0a0a0;")
         
         title_container.addWidget(title_label)
@@ -539,16 +443,16 @@ class MainUI(QMainWindow):
         input_layout.setContentsMargins(20, 20, 20, 20)
         input_layout.setSpacing(16)
         
-        self.lbl_input_title = self._SubtitleLabel(self.t("media_sub_sources"))
+        self.lbl_input_title = self._SubtitleLabel(self.tr("Media and Subtitle Sources"))
         input_layout.addWidget(self.lbl_input_title)
         
         # Video Input Row
         video_block = QVBoxLayout()
         video_block.setSpacing(6)
-        self.lbl_video_label = self._StrongBodyLabel(self.t("video_source"))
+        self.lbl_video_label = self._StrongBodyLabel(self.tr("Source Video File"))
         video_sub = QHBoxLayout()
         self.video_input = DragDropLineEdit()
-        self.video_input.setPlaceholderText(self.t("video_placeholder"))
+        self.video_input.setPlaceholderText(self.tr("Select or drag a video file here..."))
         self.btn_browse_video = self._ToolButton(self)
         self.btn_browse_video.setIcon(FluentIcon.VIDEO)
         video_sub.addWidget(self.video_input)
@@ -560,10 +464,12 @@ class MainUI(QMainWindow):
         # Subtitle Input Row
         sub_block = QVBoxLayout()
         sub_block.setSpacing(6)
-        self.lbl_sub_label = self._StrongBodyLabel(self.t("sub_source"))
+        self.lbl_sub_label = self._StrongBodyLabel(self.tr("Source Subtitle File"))
         sub_sub = QHBoxLayout()
         self.sub_input = DragDropLineEdit()
-        self.sub_input.setPlaceholderText(self.t("sub_placeholder"))
+        self.sub_input.setPlaceholderText(
+            self.tr("Select a subtitle file (supports same-name SRT, ASS, or SSA detection)...")
+        )
         self.btn_browse_sub = self._ToolButton(self)
         self.btn_browse_sub.setIcon(FluentIcon.DOCUMENT)
         sub_sub.addWidget(self.sub_input)
@@ -580,16 +486,16 @@ class MainUI(QMainWindow):
         output_layout.setContentsMargins(20, 20, 20, 20)
         output_layout.setSpacing(16)
         
-        self.lbl_output_title = self._SubtitleLabel(self.t("output_settings"))
+        self.lbl_output_title = self._SubtitleLabel(self.tr("Output and Encoding Settings"))
         output_layout.addWidget(self.lbl_output_title)
         
         # Output Directory Row
         output_dir_block = QVBoxLayout()
         output_dir_block.setSpacing(6)
-        self.lbl_output_dir_label = self._StrongBodyLabel(self.t("output_dir"))
+        self.lbl_output_dir_label = self._StrongBodyLabel(self.tr("Output Directory"))
         output_dir_sub = QHBoxLayout()
         self.output_input = DragDropLineEdit()
-        self.output_input.setPlaceholderText(self.t("output_dir_placeholder"))
+        self.output_input.setPlaceholderText(self.tr("Defaults to the source video directory..."))
         self.btn_browse_output = self._ToolButton(self)
         self.btn_browse_output.setIcon(FluentIcon.FOLDER)
         output_dir_sub.addWidget(self.output_input)
@@ -604,16 +510,16 @@ class MainUI(QMainWindow):
         
         filename_block = QVBoxLayout()
         filename_block.setSpacing(6)
-        self.lbl_filename_label = self._StrongBodyLabel(self.t("output_filename"))
+        self.lbl_filename_label = self._StrongBodyLabel(self.tr("Output Filename"))
         self.filename_input = self._LineEdit()
-        self.filename_input.setPlaceholderText(self.t("filename_placeholder"))
+        self.filename_input.setPlaceholderText(self.tr("Defaults to the input filename..."))
         filename_block.addWidget(self.lbl_filename_label)
         filename_block.addWidget(self.filename_input)
         name_format_row.addLayout(filename_block, 3)
         
         format_block = QVBoxLayout()
         format_block.setSpacing(6)
-        self.lbl_format_label = self._StrongBodyLabel(self.t("format"))
+        self.lbl_format_label = self._StrongBodyLabel(self.tr("Container Format"))
         self.format_combo = self._ComboBox()
         self.format_combo.addItems(['mp4', 'mkv', 'mov'])
         self.format_combo.setMinimumWidth(120)
@@ -626,7 +532,7 @@ class MainUI(QMainWindow):
         # Preset Row
         preset_block = QVBoxLayout()
         preset_block.setSpacing(6)
-        self.lbl_preset_label = self._StrongBodyLabel(self.t("preset"))
+        self.lbl_preset_label = self._StrongBodyLabel(self.tr("Encoding Preset"))
         
         preset_combo_layout = QHBoxLayout()
         self.preset_combo = self._ComboBox()
@@ -646,7 +552,7 @@ class MainUI(QMainWindow):
         info_icon = self._Label()
         info_icon.setPixmap(FluentIcon.INFO.icon().pixmap(16, 16))
         
-        self.preset_desc = self._CaptionLabel(self.t("preset_desc_default"))
+        self.preset_desc = self._CaptionLabel(self.tr("Preset description: select a preset"))
         self.preset_desc.setWordWrap(True)
         
         desc_card_layout.addWidget(info_icon)
@@ -658,7 +564,7 @@ class MainUI(QMainWindow):
         self.main_layout.addWidget(output_card)
  
         # Add to Queue Button
-        self.btn_start = self._PrimaryPushButton(self.t("add_to_queue"), self)
+        self.btn_start = self._PrimaryPushButton(self.tr("Add to Task Queue"), self)
         self.btn_start.setMinimumHeight(44)
         self.btn_start.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.btn_start.setIcon(FluentIcon.ADD)
@@ -696,11 +602,12 @@ class MainUI(QMainWindow):
         title_container = QVBoxLayout()
         title_container.setSpacing(4)
         
-        self.preset_param_title_label = self._TitleLabel(self.t("preset_param"))
+        self.preset_param_title_label = self._TitleLabel(self.tr("Preset Parameters"))
         self.preset_param_title_label.setObjectName('appTitle')
         
-        sub_text = "针对当前选择的预设进行自定义参数微调（不懂调节参数保持默认即可）" if self.lang == 'zh' else "Fine-tune custom parameters for the selected preset (keep defaults if you are unsure)"
-        self.preset_param_subtitle_label = self._CaptionLabel(sub_text)
+        self.preset_param_subtitle_label = self._CaptionLabel(
+            self.tr("Fine-tune the selected preset (keep the defaults if you are unsure)")
+        )
         self.preset_param_subtitle_label.setStyleSheet("color: #a0a0a0; font-size: 13px;")
         
         title_container.addWidget(self.preset_param_title_label)
@@ -709,7 +616,7 @@ class MainUI(QMainWindow):
         title_layout.addStretch()
         
         # 恢复默认按钮
-        self.btn_reset_params = self._PushButton("恢复默认" if self.lang == 'zh' else "Restore Defaults", self)
+        self.btn_reset_params = self._PushButton(self.tr("Restore Defaults"), self)
         self.btn_reset_params.setIcon(FluentIcon.HISTORY)
         self.btn_reset_params.clicked.connect(self.reset_params_action)
         title_layout.addWidget(self.btn_reset_params)
@@ -732,7 +639,7 @@ class MainUI(QMainWindow):
         layout = QVBoxLayout(self.log_widget)
         layout.setContentsMargins(16, 16, 16, 16)
         
-        self.lbl_log_title = self._Label(self.t("log_output"))
+        self.lbl_log_title = self._Label(self.tr("Log Output"))
         self.lbl_log_title.setObjectName('appTitle')
         layout.addWidget(self.lbl_log_title)
         
@@ -745,10 +652,10 @@ class MainUI(QMainWindow):
         layout.addWidget(self.log_output)
         
         # 填充历史日志
-        for log in self.log_history:
-            self.log_output.append(log)
+        for event in self.log_history:
+            self.log_output.append(self._render_log_event(event))
         
-        self.btn_export_log = self._PushButton(self.t("export_log"))
+        self.btn_export_log = self._PushButton(self.tr("Export Log"))
         self.btn_export_log.clicked.connect(self.export_log)
         layout.addWidget(self.btn_export_log, alignment=Qt.AlignLeft)
         
@@ -763,13 +670,13 @@ class MainUI(QMainWindow):
         
         # Title bar with Clear Button
         title_layout = QHBoxLayout()
-        self.lbl_queue_title = self._TitleLabel(self.t("queue"))
+        self.lbl_queue_title = self._TitleLabel(self.tr("Task Queue"))
         self.lbl_queue_title.setObjectName('appTitle')
         title_layout.addWidget(self.lbl_queue_title)
         
         title_layout.addStretch()
         
-        self.btn_clear_queue = self._PushButton(self.t("clear_queue"), self)
+        self.btn_clear_queue = self._PushButton(self.tr("Clear Queue"), self)
         self.btn_clear_queue.setIcon(FluentIcon.DELETE)
         self.btn_clear_queue.clicked.connect(self.clear_queue_action)
         title_layout.addWidget(self.btn_clear_queue)
@@ -827,7 +734,7 @@ class MainUI(QMainWindow):
         info_layout.setContentsMargins(20, 20, 20, 20)
         info_layout.setSpacing(12)
         
-        self.lbl_info_title = self._StrongBodyLabel(self.t("about_software"))
+        self.lbl_info_title = self._StrongBodyLabel(self.tr("About Software"))
         self.lbl_info_title.setStyleSheet("font-size: 16px;")
         info_layout.addWidget(self.lbl_info_title)
         
@@ -835,16 +742,16 @@ class MainUI(QMainWindow):
         grid = QGridLayout()
         grid.setSpacing(10)
         
-        self.lbl_author_label = self._Label(self.t("author"))
+        self.lbl_author_label = self._Label(self.tr("Author:"))
         grid.addWidget(self.lbl_author_label, 0, 0)
         grid.addWidget(self._Label("Jeoitim Yip"), 0, 1)
         
-        self.lbl_github_label = self._Label(self.t("github"))
+        self.lbl_github_label = self._Label(self.tr("GitHub:"))
         grid.addWidget(self.lbl_github_label, 1, 0)
         github_link = self._HyperlinkButton("https://github.com/Jeoitim/fast-embed-sub", "https://github.com/Jeoitim/fast-embed-sub", self)
         grid.addWidget(github_link, 1, 1)
         
-        self.lbl_license_label = self._Label(self.t("license"))
+        self.lbl_license_label = self._Label(self.tr("License:"))
         grid.addWidget(self.lbl_license_label, 2, 0)
         grid.addWidget(self._Label("MIT License"), 2, 1)
         
@@ -857,43 +764,55 @@ class MainUI(QMainWindow):
         deps_layout.setContentsMargins(20, 20, 20, 20)
         deps_layout.setSpacing(12)
         
-        self.lbl_deps_title = self._StrongBodyLabel(self.t("deps_thanks"))
+        self.lbl_deps_title = self._StrongBodyLabel(self.tr("Dependencies and Acknowledgements"))
         self.lbl_deps_title.setStyleSheet("font-size: 16px;")
         deps_layout.addWidget(self.lbl_deps_title)
         
         pyside_layout = QHBoxLayout()
-        self.lbl_pyside_desc = self._Label(self.t("pyside_desc"))
+        self.lbl_pyside_desc = self._Label(self.tr("• <b>PySide6</b>: Official Python bindings for Qt 6"))
         pyside_layout.addWidget(self.lbl_pyside_desc)
         pyside_layout.addStretch()
-        self.btn_pyside_link = self._HyperlinkButton("https://pypi.org/project/PySide6/", self.t("official_link"), self)
+        self.btn_pyside_link = self._HyperlinkButton(
+            "https://pypi.org/project/PySide6/", self.tr("Official Link"), self
+        )
         pyside_layout.addWidget(self.btn_pyside_link)
         deps_layout.addLayout(pyside_layout)
         
         pysf_layout = QHBoxLayout()
-        self.lbl_pysf_desc = self._Label(self.t("pysf_desc"))
+        self.lbl_pysf_desc = self._Label(
+            self.tr("• <b>PySide6-Fluent-Widgets</b>: Fluent Design widgets for PySide6")
+        )
         pysf_layout.addWidget(self.lbl_pysf_desc)
         pysf_layout.addStretch()
-        self.btn_pysf_link = self._HyperlinkButton("https://pypi.org/project/PySide6-Fluent-Widgets/", self.t("official_link"), self)
+        self.btn_pysf_link = self._HyperlinkButton(
+            "https://pypi.org/project/PySide6-Fluent-Widgets/", self.tr("Official Link"), self
+        )
         pysf_layout.addWidget(self.btn_pysf_link)
         deps_layout.addLayout(pysf_layout)
         
         ffmpeg_layout = QHBoxLayout()
-        self.lbl_ffmpeg_desc = self._Label(self.t("ffmpeg_desc"))
+        self.lbl_ffmpeg_desc = self._Label(self.tr("• <b>FFmpeg</b>: Fast and powerful audio/video codecs"))
         ffmpeg_layout.addWidget(self.lbl_ffmpeg_desc)
         ffmpeg_layout.addStretch()
-        self.btn_ffmpeg_link = self._HyperlinkButton("https://ffmpeg.org/", self.t("official_link"), self)
+        self.btn_ffmpeg_link = self._HyperlinkButton("https://ffmpeg.org/", self.tr("Official Link"), self)
         ffmpeg_layout.addWidget(self.btn_ffmpeg_link)
         deps_layout.addLayout(ffmpeg_layout)
         
         vs_layout = QHBoxLayout()
-        self.lbl_vs_desc = self._Label(self.t("vapoursynth_desc"))
+        self.lbl_vs_desc = self._Label(
+            self.tr("• <b>VapourSynth</b>: Modern open-source video processing framework")
+        )
         vs_layout.addWidget(self.lbl_vs_desc)
         vs_layout.addStretch()
-        self.btn_vs_link = self._HyperlinkButton("https://www.vapoursynth.com/", self.t("official_link"), self)
+        self.btn_vs_link = self._HyperlinkButton(
+            "https://www.vapoursynth.com/", self.tr("Official Link"), self
+        )
         vs_layout.addWidget(self.btn_vs_link)
         deps_layout.addLayout(vs_layout)
         
-        self.lbl_special_thanks = self._Label(self.t("special_thanks"))
+        self.lbl_special_thanks = self._Label(
+            self.tr("Special thanks to all open-source contributors supporting this project and its dependencies.")
+        )
         deps_layout.addWidget(self.lbl_special_thanks)
         
         layout.addWidget(deps_card)
@@ -932,7 +851,7 @@ class MainUI(QMainWindow):
             metadata = data.get("metadata", {})
             locales = metadata.get("locales", {}) if isinstance(metadata, dict) else {}
             lang_data = locales.get(self.lang, {}) if isinstance(locales, dict) else {}
-            translated_name = lang_data.get("name", self.t(name)) if isinstance(lang_data, dict) else self.t(name)
+            translated_name = lang_data.get("name", name) if isinstance(lang_data, dict) else name
             self.preset_combo.addItem(translated_name, userData=name)
             
         self.preset_combo.blockSignals(False)
@@ -954,24 +873,26 @@ class MainUI(QMainWindow):
         presets = self.engine.get_presets()
         current_name = self.preset_combo.currentData()
         if current_name in presets:
+            preserved_values = None
+            if self._loaded_param_preset == current_name:
+                preserved_values = self.vpy_param_widget.get_values()
             data = presets[current_name]
             desc = data.get("desc", "")
             is_vpy = data.get("is_vpy", False)
             cmd_template = data.get("cmd_template", "")
             
-            # 优先从 YAML 的 locales 结构中获取 description，如果不存在则使用 TRANSLATIONS 映射或默认首行说明
+            # Runtime preset content stays self-contained because it cannot be extracted by lupdate.
             metadata = data.get("metadata", {})
             locales = metadata.get("locales", {}) if isinstance(metadata, dict) else {}
             lang_data = locales.get(self.lang, {}) if isinstance(locales, dict) else {}
             translated_desc = lang_data.get("desc", None) if isinstance(lang_data, dict) else None
             
             if not translated_desc:
-                desc_key = f"{current_name}_desc"
-                translated_desc = self.t(desc_key)
-                if translated_desc == desc_key:
-                    translated_desc = desc
+                translated_desc = desc
                     
-            self.preset_desc.setText(f"{self.t('preset_desc_prefix')}{translated_desc}")
+            self.preset_desc.setText(
+                self.tr("Preset description: {description}").format(description=translated_desc)
+            )
             
             # 格式选择框状态与自定义格式显示
             format_match = re.search(r'\{format:([^}]+)\}', cmd_template) if cmd_template else None
@@ -1023,13 +944,28 @@ class MainUI(QMainWindow):
                                 p_copy["group"] = trans["group"]
                             if "tooltip" in trans:
                                 p_copy["tooltip"] = trans["tooltip"]
+                            option_translations = trans.get("options")
+                            source_options = p.get("options")
+                            if isinstance(source_options, list):
+                                if isinstance(option_translations, dict):
+                                    p_copy["option_labels"] = [
+                                        option_translations.get(
+                                            option,
+                                            option_translations.get(str(option), str(option)),
+                                        )
+                                        for option in source_options
+                                    ]
+                                elif (
+                                    isinstance(option_translations, list)
+                                    and len(option_translations) == len(source_options)
+                                ):
+                                    p_copy["option_labels"] = option_translations
                                 
-                    # 默认基础分组的通用映射
-                    if self.lang == 'en':
-                        if p_copy.get("group") == "几何变换":
-                            p_copy["group"] = "Geometry"
-                        elif p_copy.get("group") == "尺寸调整":
-                            p_copy["group"] = "Resize"
+                    # Localize legacy presets that predate the locales metadata block.
+                    if p_copy.get("group") == "几何变换":
+                        p_copy["group"] = self.tr("Geometry")
+                    elif p_copy.get("group") == "尺寸调整":
+                        p_copy["group"] = self.tr("Resize")
                             
                     localized_params.append(p_copy)
                 params = localized_params
@@ -1038,44 +974,52 @@ class MainUI(QMainWindow):
                 params = [
                     {
                         "id": "sub_engine",
-                        "name": "字幕渲染引擎" if self.lang == 'zh' else "Subtitle Engine",
+                        "name": self.tr("Subtitle Engine"),
                         "type": "select",
-                        "default": "Subtext (默认)" if self.lang == 'zh' else "Subtext (Default)",
-                        "options": ["Subtext (默认)", "AssRender (高性能)", "VSFilterMod (兼容性)"] if self.lang == 'zh' else ["Subtext (Default)", "AssRender (High Performance)", "VSFilterMod (Compatibility)"],
-                        "group": "常规设置" if self.lang == 'zh' else "General",
+                        "default": "subtext",
+                        "options": ["subtext", "assrender", "vsfiltermod"],
+                        "option_labels": [
+                            self.tr("Subtext (Default)"),
+                            self.tr("AssRender (High Performance)"),
+                            self.tr("VSFilterMod (Compatibility)"),
+                        ],
+                        "group": self.tr("General"),
                         "order": 1,
-                        "tooltip": "选择用于载入并绘制字幕的引擎后端" if self.lang == 'zh' else "Select the rendering engine backend for hardcoding subtitles"
+                        "tooltip": self.tr("Select the subtitle rendering backend")
                     },
                     {
                         "id": "flip_horizontal",
-                        "name": "水平翻转 (Flip H)" if self.lang == 'zh' else "Horizontal Flip (Flip H)",
+                        "name": self.tr("Horizontal Flip (Flip H)"),
                         "type": "bool",
                         "default": False,
-                        "group": "几何变换" if self.lang == 'zh' else "Geometry",
+                        "group": self.tr("Geometry"),
                         "order": 2,
-                        "tooltip": "是否对画面进行水平镜像翻转" if self.lang == 'zh' else "Whether to mirror the video horizontally"
+                        "tooltip": self.tr("Mirror the video horizontally")
                     },
                     {
                         "id": "flip_vertical",
-                        "name": "垂直翻转 (Flip V)" if self.lang == 'zh' else "Vertical Flip (Flip V)",
+                        "name": self.tr("Vertical Flip (Flip V)"),
                         "type": "bool",
                         "default": False,
-                        "group": "几何变换" if self.lang == 'zh' else "Geometry",
+                        "group": self.tr("Geometry"),
                         "order": 3,
-                        "tooltip": "是否对画面进行垂直倒置翻转" if self.lang == 'zh' else "Whether to flip the video vertically"
+                        "tooltip": self.tr("Flip the video vertically")
                     },
                     {
                         "id": "resize_scale",
-                        "name": "画面缩放倍数" if self.lang == 'zh' else "Resize Scale",
+                        "name": self.tr("Resize Scale"),
                         "type": "slider",
                         "default": "1.0",
                         "options": ["1.0", "0.75", "0.5", "0.25"],
-                        "group": "尺寸调整" if self.lang == 'zh' else "Resize",
+                        "group": self.tr("Resize"),
                         "order": 4,
-                        "tooltip": "通过滑块调整画面分辨率比例（固定刻度）" if self.lang == 'zh' else "Scale the video resolution (fixed scales)"
+                        "tooltip": self.tr("Scale the video resolution using fixed steps")
                     }
                 ]
             self.vpy_param_widget.load_params(params)
+            if preserved_values:
+                self.vpy_param_widget.set_values(preserved_values)
+            self._loaded_param_preset = current_name
 
     def on_video_changed(self, video_path):
         if not video_path or not os.path.isfile(video_path): return
@@ -1095,22 +1039,28 @@ class MainUI(QMainWindow):
                 break
 
     def browse_video(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, self.t("select_video_dialog_title"), "", self.t("video_file_filter"))
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, self.tr("Select Video"), "", self.tr("Video Files (*.mp4 *.mov *.mkv)")
+        )
         if file_path: self.video_input.setText(file_path)
 
     def browse_subtitle(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, self.t("select_sub_dialog_title"), "", self.t("sub_file_filter"))
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, self.tr("Select Subtitles"), "", self.tr("Subtitle Files (*.srt *.ass *.ssa)")
+        )
         if file_path: self.sub_input.setText(file_path)
 
     def browse_output(self):
-        dir_path = QFileDialog.getExistingDirectory(self, self.t("select_output_dir_dialog_title"), "")
+        dir_path = QFileDialog.getExistingDirectory(self, self.tr("Select Output Directory"), "")
         if dir_path:
             self.output_input.setText(dir_path)
             if self.video_input.text():
                 self.filename_input.setText(os.path.splitext(os.path.basename(self.video_input.text()))[0])
 
     def export_log(self):
-        file_path, _ = QFileDialog.getSaveFileName(self, self.t("export_log_dialog_title"), "", self.t("text_file_filter"))
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, self.tr("Export Log"), "", self.tr("Text Files (*.txt)")
+        )
         if file_path:
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(self.log_output.toPlainText())
@@ -1131,13 +1081,19 @@ class MainUI(QMainWindow):
         w.exec()
 
     def clear_queue_action(self):
-        is_running = any(t.status == "压制中" for t in self.engine.queue)
+        is_running = any(t.status is TaskStatus.ENCODING for t in self.engine.queue)
         if is_running:
-            confirm = self._MessageBox(self.t("warning"), self.t("empty_queue_confirm_running"), self)
+            confirm = self._MessageBox(
+                self.tr("Warning"),
+                self.tr("Active tasks are in progress. Clearing the queue will cancel them. Continue?"),
+                self,
+            )
             if not confirm.exec():
                 return
         else:
-            confirm = self._MessageBox(self.t("info"), self.t("empty_queue_confirm_all"), self)
+            confirm = self._MessageBox(
+                self.tr("Information"), self.tr("Clear all tasks from the queue?"), self
+            )
             if not confirm.exec():
                 return
 
@@ -1167,7 +1123,7 @@ class MainUI(QMainWindow):
         format_val = self.format_combo.currentText()
 
         if not video:
-            self.show_warning(self.t("warning"), self.t("select_video_warning"))
+            self.show_warning(self.tr("Warning"), self.tr("Please select a video file."))
             return
 
         if not output_dir:
@@ -1180,7 +1136,12 @@ class MainUI(QMainWindow):
 
         output_path = os.path.join(output_dir, f"{filename}.{format_val}")
         if os.path.exists(output_path):
-            self.show_warning(self.t("warning"), self.t("output_exists_warning").format(path=output_path))
+            self.show_warning(
+                self.tr("Warning"),
+                self.tr("Output file already exists:\n{path}\n\nChange the filename or output directory and try again.").format(
+                    path=output_path
+                ),
+            )
             return
 
         current_preset = self.preset_combo.currentData()
@@ -1196,7 +1157,7 @@ class MainUI(QMainWindow):
                 self.create_task_widget(task)
 
             except ValueError as e:
-                self.show_critical(self.t("error"), f"{self.t('error')}: {str(e)}")
+                self.show_critical(self.tr("Error"), translate_engine_error(e))
 
     def create_task_widget(self, task):
         card = QFrame()
@@ -1208,7 +1169,7 @@ class MainUI(QMainWindow):
         info_label = self._Label()
         info_label.setWordWrap(True)
         
-        status_label = self._Label(self.t("Waiting"))
+        status_label = self._Label(self.tr("Waiting"))
         status_label.setFixedWidth(80)
         status_label.setAlignment(Qt.AlignCenter)
         
@@ -1240,7 +1201,7 @@ class MainUI(QMainWindow):
         v_name = self.truncate_string(os.path.basename(task.video), 25)
         o_name = self.truncate_string(os.path.basename(task.output_path), 25)
         
-        translated_preset = self.t(task.preset_name)
+        translated_preset = self._localized_preset_name(task.preset_name)
         info_text = f"<b>{v_name}</b> <span style='color:gray'>|</span> {translated_preset} <span style='color:gray'>|</span> {o_name}"
         widgets["info"].setText(info_text)
         
@@ -1248,42 +1209,55 @@ class MainUI(QMainWindow):
         cancel_btn = widgets["cancel_btn"]
         
         # 局部UI状态更新
-        if task.status == "等待中":
-            status_label.setText(self.t("Waiting"))
+        if task.status is TaskStatus.WAITING:
+            status_label.setText(self.tr("Waiting"))
             status_label.setStyleSheet("color: #808080;")
             cancel_btn.setEnabled(True)
-        elif task.status == "压制中":
+        elif task.status is TaskStatus.ENCODING:
             status_label.setText(f"{task.progress}%")
             status_label.setStyleSheet("color: #0078D4; font-weight: bold;")
             cancel_btn.setEnabled(True)
-        elif task.status == "已完成":
-            status_label.setText(self.t("Completed"))
+        elif task.status is TaskStatus.COMPLETED:
+            status_label.setText(self.tr("Completed"))
             status_label.setStyleSheet("color: #28a745; font-weight: bold;")
             cancel_btn.setEnabled(False)
-        elif task.status == "已取消":
-            status_label.setText(self.t("Cancelled"))
+        elif task.status is TaskStatus.CANCELLED:
+            status_label.setText(self.tr("Cancelled"))
             status_label.setStyleSheet("color: #6c757d;")
             cancel_btn.setEnabled(False)
-        elif task.status == "失败":
-            status_label.setText(self.t("Failed"))
+        elif task.status is TaskStatus.FAILED:
+            status_label.setText(self.tr("Failed"))
             status_label.setStyleSheet("color: #dc3545; font-weight: bold;")
             cancel_btn.setEnabled(False)
 
         # ====== 全局共享进度条逻辑 ======
-        if task.status == "压制中":
+        if task.status is TaskStatus.ENCODING:
             self.global_progress.setVisible(True)
             self.global_progress.setValue(task.progress)
-        elif task.status in ["已完成", "已取消", "失败"]:
+        elif task.status in {TaskStatus.COMPLETED, TaskStatus.CANCELLED, TaskStatus.FAILED}:
             # 如果当前没有任何任务在“压制中”，则隐藏进度条并归零
-            is_running = any(t.status == "压制中" for t in self.engine.queue)
+            is_running = any(t.status is TaskStatus.ENCODING for t in self.engine.queue)
             if not is_running:
                 self.global_progress.setVisible(False)
                 self.global_progress.setValue(0)
 
-    def _on_log_message(self, message, color):
-        styled = f'<span style="color: {color};">{message}</span>' if color else message
-        self.log_history.append(styled)
-        self.log_buffer.append(styled)
+    def _localized_preset_name(self, preset_name):
+        preset = self.engine.get_presets().get(preset_name, {})
+        metadata = preset.get("metadata", {}) if isinstance(preset, dict) else {}
+        locales = metadata.get("locales", {}) if isinstance(metadata, dict) else {}
+        language_data = locales.get(self.lang, {}) if isinstance(locales, dict) else {}
+        return language_data.get("name", preset_name) if isinstance(language_data, dict) else preset_name
+
+    def _render_log_event(self, event):
+        overrides = {}
+        if event.message_key == "queue_task_added" and "preset" in event.params:
+            overrides["preset"] = self._localized_preset_name(event.params["preset"])
+        message = translate_log_event(event, **overrides)
+        return f'<span style="color: {event.color};">{message}</span>' if event.color else message
+
+    def _on_log_message(self, event):
+        self.log_history.append(event)
+        self.log_buffer.append(self._render_log_event(event))
 
     def flush_log_buffer(self):
         if not self.log_buffer:

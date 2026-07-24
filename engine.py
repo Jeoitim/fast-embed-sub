@@ -4,6 +4,8 @@ import sys
 import shutil
 import uuid
 import tempfile
+from dataclasses import dataclass, field
+from enum import Enum
 from PySide6.QtCore import QTimer, QProcess, QObject, Signal
 
 from preset_parser import PresetParser
@@ -13,40 +15,29 @@ DURATION_REGEX = re.compile(r'Duration: (\d+):(\d+):(\d+\.\d+)')
 TIME_REGEX = re.compile(r'time=(\d+):(\d+):(\d+\.\d+)')
 
 
-ENGINE_TRANSLATIONS = {
-    'zh': {
-        'warn_no_ffmpeg': "<b>[警告]</b> 未在 components/ 目录下检测到 ffmpeg.exe，且环境变量中没有找到 ffmpeg。压制任务将无法正常运行！",
-        'sys_vs_registered': "[系统] 已自动为便携版 VapourSynth 注册 Python 运行库映射。",
-        'queue_task_added': "<b>[队列]</b> 任务已添加: {video} ({preset})",
-        'task_start': "<b>[{video}]</b> 开始压制...",
-        'task_cmd': "<b>[{video}]</b> 执行命令: {cmd}",
-        'sys_vs_loaded': "[系统] 已载入便携版 VapourSynth 运行环境: {dir}",
-        'queue_finished': "<b>[队列]</b> 所有任务处理完毕",
-        'sys_cleaned_temp': "[系统] 已清理临时 Vpy 文件: {filename}",
-        'queue_cleared': "<b>[队列]</b> 任务队列已清空",
-        'task_deleted_unfinished': "<b>[{video}]</b> 已删除未完成文件: {filename}",
-        'task_delete_failed': "<b>[{video}]</b> 删除文件失败: {error}",
-        'task_cancelled': "<b>[{video}]</b> 任务已手动取消",
-        'task_success': "<b>[{video}]</b> 压制成功",
-        'task_failed': "<b>[{video}]</b> 压制失败 (退出码: {exit_code})",
-    },
-    'en': {
-        'warn_no_ffmpeg': "<b>[Warning]</b> ffmpeg.exe was not detected in the components/ directory, and ffmpeg was not found in environment variables. Encoding tasks will not work properly!",
-        'sys_vs_registered': "[System] Automatically registered Python library mapping for portable VapourSynth.",
-        'queue_task_added': "<b>[Queue]</b> Task added: {video} ({preset})",
-        'task_start': "<b>[{video}]</b> Started encoding...",
-        'task_cmd': "<b>[{video}]</b> Executing command: {cmd}",
-        'sys_vs_loaded': "[System] Loaded portable VapourSynth runtime environment: {dir}",
-        'queue_finished': "<b>[Queue]</b> All tasks completed",
-        'sys_cleaned_temp': "[System] Cleaned up temporary Vpy file: {filename}",
-        'queue_cleared': "<b>[Queue]</b> Task queue cleared",
-        'task_deleted_unfinished': "<b>[{video}]</b> Deleted incomplete file: {filename}",
-        'task_delete_failed': "<b>[{video}]</b> Failed to delete file: {error}",
-        'task_cancelled': "<b>[{video}]</b> Task manually cancelled",
-        'task_success': "<b>[{video}]</b> Successfully encoded",
-        'task_failed': "<b>[{video}]</b> Encoding failed (Exit code: {exit_code})",
-    }
-}
+class TaskStatus(Enum):
+    WAITING = "waiting"
+    ENCODING = "encoding"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    FAILED = "failed"
+
+
+@dataclass(frozen=True)
+class LogEvent:
+    message_key: str
+    color: str = ""
+    params: dict = field(default_factory=dict)
+    translatable: bool = True
+
+
+class EngineError(ValueError):
+    """A presentation-neutral engine error with format parameters."""
+
+    def __init__(self, message_key: str, **params):
+        super().__init__(message_key)
+        self.message_key = message_key
+        self.params = params
 
 
 class TranscodeTask:
@@ -60,7 +51,7 @@ class TranscodeTask:
         self.final_cmd = final_cmd
         self.temp_vpy_path = temp_vpy_path
         
-        self.status = "等待中"  # 状态：等待中, 压制中, 已完成, 已取消, 失败
+        self.status = TaskStatus.WAITING
         self.progress = 0
         self.total_duration = None
         self.duration_parsed = False
@@ -68,11 +59,10 @@ class TranscodeTask:
 class TranscodeEngine(QObject):
     # 定义信号，用于通知 GUI
     task_status_changed = Signal(str)  # 任务状态或进度变化时触发
-    log_message = Signal(str, str)     # 新增信号：通知 GUI 打印日志 (message, color)
+    log_message = Signal(object)       # LogEvent; translation is a presentation concern
     
     def __init__(self, ffmpeg_path="components/ffmpeg.exe"):
         super().__init__()
-        self.lang = "zh"
         if getattr(sys, 'frozen', False):
             self.bundle_dir = os.path.dirname(sys.executable)
         else:
@@ -146,7 +136,7 @@ class TranscodeEngine(QObject):
                     f.write(f'\n"{portable_key}" = {python_paths_array}\n')
                 self._log_to_window("sys_vs_registered")
         except Exception as e:
-            print(f"自动配置 VapourSynth toml 失败: {e}")
+            print(f"Failed to configure VapourSynth toml: {e}")
 
     def get_presets(self):
         """获取预设列表"""
@@ -167,7 +157,7 @@ class TranscodeEngine(QObject):
                 with open(default_preset_path, 'w', encoding='utf-8') as f:
                     f.write(default_content)
             except Exception as e:
-                print(f"写入默认预设文件失败: {e}")
+                print(f"Failed to write the default preset: {e}")
         
         for filename in os.listdir(presets_dir):
             if filename.endswith('.txt'):
@@ -176,7 +166,7 @@ class TranscodeEngine(QObject):
                     preset_data = PresetParser.parse_preset(preset_path)
                     presets[os.path.splitext(filename)[0]] = preset_data
                 except Exception as e:
-                    print(f"读取预设错误: {e}")
+                    print(f"Failed to read preset: {e}")
         return presets
 
     def get_video_duration(self, video_path):
@@ -191,7 +181,7 @@ class TranscodeEngine(QObject):
                 h, m, s = match.groups()
                 return int(h) * 3600 + int(m) * 60 + float(s)
         except Exception as e:
-            print(f"获取视频时长失败: {e}")
+            print(f"Failed to probe video duration: {e}")
         return None
 
     def compile_and_register_vpy(self, vpy_template, param_values, video_path, subtitle_path, preset_name):
@@ -224,12 +214,13 @@ class TranscodeEngine(QObject):
             # 提取具体的行号、错误描述和出错代码段
             line_no = e.lineno
             line_text = e.text.strip() if e.text else ""
-            error_details = (
-                f"预设模板 [{preset_name}] 编译后的 Vpy 脚本中包含语法错误！\n"
-                f"错误信息: {e.msg} (第 {line_no} 行)\n"
-                f"出错代码: {line_text}"
-            )
-            raise ValueError(error_details)
+            raise EngineError(
+                "preset_vpy_syntax_error",
+                preset=preset_name,
+                error=e.msg,
+                line=line_no,
+                code=line_text,
+            ) from e
         
         # 写入系统临时文件夹
         temp_dir = tempfile.gettempdir()
@@ -325,36 +316,36 @@ class TranscodeEngine(QObject):
             "        if not os.path.exists(dll_path):\n"
             "            dll_path = os.path.join(r\"{components_dir}\", \"vapoursynth\", \"plugins\", dll_filename)\n"
             "        if not os.path.exists(dll_path):\n"
-            "            raise FileNotFoundError(f\"字幕渲染失败：缺少必要的字幕插件 (dll_path={dll_path})。请检查 components 目录是否完整。\")\n"
+            "            raise FileNotFoundError(f\"Subtitle rendering failed: required plugin missing (dll_path={dll_path}). Check the components directory.\")\n"
             "        try:\n"
             "            core.std.LoadPlugin(path=dll_path)\n"
             "        except Exception as e:\n"
-            "            raise RuntimeError(f\"字幕渲染失败：加载字幕插件失败 ({dll_filename})，错误信息: {e}\")\n"
+            "            raise RuntimeError(f\"Subtitle rendering failed: could not load plugin ({dll_filename}): {e}\")\n"
             "        try:\n"
             "            return call_func()\n"
             "        except Exception as e:\n"
-            "            raise RuntimeError(f\"字幕渲染失败：渲染字幕文件 '{sub_path}' 出错: {e}\")\n"
+            "            raise RuntimeError(f\"Subtitle rendering failed for '{sub_path}': {e}\")\n"
             "    if \"assrender\" in sub_engine:\n"
             "        try:\n"
             "            clip = core.assrender.Render(clip, file=sub_path)\n"
             "        except AttributeError:\n"
             "            clip = load_dll_and_call(\"assrender.dll\", lambda: core.assrender.Render(clip, file=sub_path))\n"
             "        except Exception as e:\n"
-            "            raise RuntimeError(f\"字幕渲染失败：渲染字幕文件 '{sub_path}' 出错: {e}\")\n"
+            "            raise RuntimeError(f\"Subtitle rendering failed for '{sub_path}': {e}\")\n"
             "    elif \"vsfiltermod\" in sub_engine:\n"
             "        try:\n"
             "            clip = core.vsfm.TextSubMod(clip, file=sub_path)\n"
             "        except AttributeError:\n"
             "            clip = load_dll_and_call(\"VSFilterMod.dll\", lambda: core.vsfm.TextSubMod(clip, file=sub_path))\n"
             "        except Exception as e:\n"
-            "            raise RuntimeError(f\"字幕渲染失败：渲染字幕文件 '{sub_path}' 出错: {e}\")\n"
+            "            raise RuntimeError(f\"Subtitle rendering failed for '{sub_path}': {e}\")\n"
             "    else:\n"
             "        try:\n"
             "            clip = core.sub.TextFile(clip, file=sub_path)\n"
             "        except AttributeError:\n"
             "            clip = load_dll_and_call(\"subtext.dll\", lambda: core.sub.TextFile(clip, file=sub_path))\n"
             "        except Exception as e:\n"
-            "            raise RuntimeError(f\"字幕渲染失败：渲染字幕文件 '{sub_path}' 出错: {e}\")\n\n"
+            "            raise RuntimeError(f\"Subtitle rendering failed for '{sub_path}': {e}\")\n\n"
             "# 9. 输出\n"
             "clip.set_output()\n"
         )
@@ -364,14 +355,14 @@ class TranscodeEngine(QObject):
                 with open(base_vpy_path, 'w', encoding='utf-8') as f:
                     f.write(default_template)
             except Exception as e:
-                print(f"创建 assets/base.vpy 失败: {e}")
+                print(f"Failed to create assets/base.vpy: {e}")
                 return default_template
                 
         try:
             with open(base_vpy_path, 'r', encoding='utf-8') as f:
                 return f.read()
         except Exception as e:
-            print(f"读取 assets/base.vpy 失败: {e}")
+            print(f"Failed to read assets/base.vpy: {e}")
             return default_template
 
     def convert_to_vpy_cmd(self, ffmpeg_cmd):
@@ -414,7 +405,7 @@ class TranscodeEngine(QObject):
         presets = self.get_presets()
         preset_data = presets.get(preset_name)
         if not preset_data:
-            raise ValueError(f"未找到预设: {preset_name}")
+            raise EngineError("preset_not_found", preset=preset_name)
             
         # 准备目录占位符的真实路径
         preset_dir = os.path.abspath(os.path.join(self.bundle_dir, "presets"))
@@ -515,7 +506,7 @@ class TranscodeEngine(QObject):
                 preset_components_dir=preset_components_dir.replace("\\", "/")
             )
         except KeyError as e:
-            raise ValueError(f"不支持的占位符: {e}")
+            raise EngineError("unsupported_placeholder", placeholder=e.args[0]) from e
             
         final_cmd = final_cmd.replace('components/ffmpeg.exe', f'"{self.ffmpeg_path}"')
         
@@ -560,9 +551,9 @@ class TranscodeEngine(QObject):
     def _start_next_task(self):
         """寻找下一个等待中的任务并启动"""
         for task in self.queue:
-            if task.status == "等待中":
+            if task.status is TaskStatus.WAITING:
                 self.current_task = task
-                self.current_task.status = "压制中"
+                self.current_task.status = TaskStatus.ENCODING
                 self.task_status_changed.emit(task.task_id)
                 
                 self._log_to_window("task_start", "green", video=os.path.basename(task.video))
@@ -609,28 +600,28 @@ class TranscodeEngine(QObject):
                     os.remove(task.temp_vpy_path)
                     self._log_to_window("sys_cleaned_temp", filename=os.path.basename(task.temp_vpy_path))
                 except Exception as e:
-                    print(f"清理临时文件失败: {e}")
+                    print(f"Failed to remove temporary file: {e}")
 
     def cancel_task(self, task_id):
         """取消指定任务"""
         for task in self.queue:
             if task.task_id == task_id:
-                if task.status == "压制中":
+                if task.status is TaskStatus.ENCODING:
                     self.process.kill()  # 触发 on_process_finished
-                    task.status = "已取消"
+                    task.status = TaskStatus.CANCELLED
                     self._cleanup_temp_vpy(task)
                     QTimer.singleShot(100, lambda: self._delete_unfinished_file(task))
-                elif task.status == "等待中":
-                    task.status = "已取消"
+                elif task.status is TaskStatus.WAITING:
+                    task.status = TaskStatus.CANCELLED
                     self._cleanup_temp_vpy(task)
                 self.task_status_changed.emit(task_id)
                 break
 
     def clear_queue(self):
         """清空所有任务。如果有正在运行的任务，取消并终止进程。"""
-        if self.current_task and self.current_task.status == "压制中":
+        if self.current_task and self.current_task.status is TaskStatus.ENCODING:
             self.process.kill()
-            self.current_task.status = "已取消"
+            self.current_task.status = TaskStatus.CANCELLED
             self._cleanup_temp_vpy(self.current_task)
             self._delete_unfinished_file(self.current_task)
         self.queue.clear()
@@ -646,20 +637,9 @@ class TranscodeEngine(QObject):
             except Exception as e:
                 self._log_to_window("task_delete_failed", "red", video=os.path.basename(task.video), error=str(e))
 
-    def _log_to_window(self, message_key, color=None, **kwargs):
-        """发送日志信号，支持多语言和格式化，解耦 GUI"""
-        lang = getattr(self, "lang", "zh")
-        translations = ENGINE_TRANSLATIONS.get(lang, ENGINE_TRANSLATIONS["zh"])
-        if message_key in translations:
-            message = translations[message_key].format(**kwargs)
-        else:
-            message = message_key
-            if kwargs:
-                try:
-                    message = message.format(**kwargs)
-                except Exception:
-                    pass
-        self.log_message.emit(message, color or "")
+    def _log_to_window(self, message_key, color=None, *, translatable=True, **kwargs):
+        """Emit structured log data without translating it in the engine."""
+        self.log_message.emit(LogEvent(message_key, color or "", kwargs, translatable))
 
     def on_process_started(self):
         self.task_status_changed.emit(self.current_task.task_id)
@@ -667,15 +647,15 @@ class TranscodeEngine(QObject):
     def on_process_finished(self, exit_code, exit_status):
         if self.current_task:
             self._cleanup_temp_vpy(self.current_task)
-            if self.current_task.status == "已取消":
+            if self.current_task.status is TaskStatus.CANCELLED:
                 self._log_to_window("task_cancelled", "gray", video=os.path.basename(self.current_task.video))
                 self._delete_unfinished_file(self.current_task)
             elif exit_code == 0:
-                self.current_task.status = "已完成"
+                self.current_task.status = TaskStatus.COMPLETED
                 self.current_task.progress = 100
                 self._log_to_window("task_success", "green", video=os.path.basename(self.current_task.video))
             else:
-                self.current_task.status = "失败"
+                self.current_task.status = TaskStatus.FAILED
                 self._log_to_window("task_failed", "red", video=os.path.basename(self.current_task.video), exit_code=exit_code)
             
             self.task_status_changed.emit(self.current_task.task_id)
@@ -689,7 +669,7 @@ class TranscodeEngine(QObject):
             for line in data.splitlines():
                 line = line.strip()
                 if line:
-                    self._log_to_window(f"{prefix} {line}")
+                    self._log_to_window(f"{prefix} {line}", translatable=False)
 
     def on_ready_read_stderr(self):
         data = self.process.readAllStandardError().data().decode('utf-8', errors='ignore')
@@ -717,4 +697,4 @@ class TranscodeEngine(QObject):
                         self.current_task.progress = prog
                         self.task_status_changed.emit(self.current_task.task_id)
             
-            self._log_to_window(f"{prefix} {line}")
+            self._log_to_window(f"{prefix} {line}", translatable=False)

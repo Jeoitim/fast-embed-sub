@@ -124,6 +124,9 @@ locales:
         name: "Upsampling Algorithm"
         group: "Resize"
         tooltip: "Interpolation algorithm used for upscaling. ZNEDI3 uses neural network."
+        options:
+          "常规双立方 (Bicubic)": "Standard Bicubic (Bicubic)"
+          "ZNEDI3 (神经网络)": "ZNEDI3 (Neural Network)"
       deband:
         name: "Enable Debanding (Deband)"
         group: "Enhance"
@@ -136,6 +139,10 @@ locales:
         name: "Denoise Method"
         group: "Enhance"
         tooltip: "Apply noise reduction. Recommend MVTools for motion, BM3D for high quality"
+        options:
+          "关闭": "Off"
+          "MVTools (运动自适应)": "MVTools (Motion Adaptive)"
+          "BM3D (高质量空间降噪)": "BM3D (High-quality Spatial Denoising)"
       denoise_strength:
         name: "Denoise Strength"
         group: "Enhance"
@@ -152,6 +159,10 @@ locales:
         name: "Subtitle Engine"
         group: "General"
         tooltip: "Select the rendering engine backend for hardcoding subtitles"
+        options:
+          "Subtext (默认)": "Subtext (Default)"
+          "AssRender (高性能)": "AssRender (High Performance)"
+          "VSFilterMod (兼容性)": "VSFilterMod (Compatibility)"
 $custom-end
 
 $vpy-start

@@ -66,7 +66,7 @@ VapourSynth 是基于 Python 的强大视频处理框架，在去色带、降噪
 
 ### 2. 核心模块与架构关系
 
-整个应用程序由以下五个核心源文件构成，逻辑清晰解耦：
+整个应用程序由以下核心源文件构成：
 
 * **[main.py](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/main.py)**：入口程序。负责应用启动闪屏渲染（SplashScreen）、异步加载重型组件、应用 Fluent 风格全局暗色主题、以及窗口初始化展示。
 * **[preset_parser.py](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/preset_parser.py)**：预设解析核心。通过正则与切片技术分离 YAML 声明、Vpy 模板和命令行模板。包含统一替换路径和转义字符串的 `compile_vpy_script` 静态方法。
@@ -78,6 +78,7 @@ VapourSynth 是基于 Python 的强大视频处理框架，在去色带、降噪
   * 搜索并定位便携版 `vspipe.exe`。若检测到 `components/vapoursynth`，在 `QProcessEnvironment` 中注入便携版 `PATH` 与 `PYTHONPATH` 路径。
   * 调度 `QProcess`。如果命令行含有管道符 `|`，则使用 `cmd.exe /c` 执行流式任务；否则直接调用可执行命令。
   * 探测视频时长以校准管道压制时的进度刷新，并在压制完成/手动取消任务后负责清理临时生成的 `.vpy` 文件。
+* **`localization.py` 与 `i18n/`**：使用 Qt `QTranslator` 管理运行时语言；可编辑的中文翻译保存在 `.ts`，运行时加载编译后的 `.qm`。转码引擎只发送结构化日志事件，不依赖界面语言。
 
 ### 3. 本地开发与运行
 1. **克隆或进入工作区**：
@@ -94,13 +95,20 @@ VapourSynth 是基于 Python 的强大视频处理框架，在去色带、降噪
    ```bash
    python main.py
    ```
+4. **更新界面翻译**：修改 `self.tr(...)` 或 `QCoreApplication.translate(...)` 文本后，执行：
+   ```powershell
+   .venv\Scripts\pyside6-lupdate.exe main.py gui.py localization.py vpy_param_widget.py -ts i18n\fast_embed_sub_zh_CN.ts
+   .venv\Scripts\pyside6-linguist.exe i18n\fast_embed_sub_zh_CN.ts
+   .venv\Scripts\pyside6-lrelease.exe i18n\fast_embed_sub_zh_CN.ts
+   ```
+   `.ts` 和 `.qm` 均需随代码提交。预设属于运行时扩展内容，继续通过各预设 YAML 中的 `locales` 区块提供翻译。
 
 ### 4. 编译打包与安装包制作说明 (`build.ps1`)
 项目根目录下提供了用于编译打包和安装包制作的 PowerShell 脚本 [build.ps1](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/build.ps1)。
 运行该脚本会全自动执行以下流程：
 1. **自动生成图标**：读取 `assets/icon.png` 自动转换为支持 Windows 的多尺寸 `assets/icon.ico` 图标。
 2. **Nuitka STANDALONE 编译**：自动调用 `.venv` 环境，将 Python 代码编译为高性能的 Windows 独立绿色包，生成在 `outputs/main.dist/` 中。
-3. **资源及依赖同步**：物理复制 `components/`、`presets/` 和 `assets/` 文件夹至打包目录。
+3. **资源及依赖同步**：编译 Qt 翻译文件，并复制 `components/`、`presets/`、`assets/` 和 `i18n/` 至打包目录。
 4. **运行库优化 (体积瘦身)**：自动分析打包后的 `components` 运行库目录，删除不必要的 C/C++ 头文件 (`include/`)、`.pdb` 调试文件、`get-pip.py` 脚本以及所有的 `*.dist-info`/`*.egg-info` 元数据与 `__pycache__` 缓存，大幅减少文件个数并节省 ~25MB 体积。
 5. **安全 UPX 压缩**：调用系统的 UPX 压缩打包目录下的二进制文件。**脚本自动跳过了 `components/` 目录**（包含 FFmpeg 和 VapourSynth 的 DLL/EXE 插件），防止对外部运行库造成损坏，仅压缩主程序本身。
 6. **NSIS 安装包制作**：自动检测系统中的 `makensis` 编译器，读取 [installer.nsi](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/installer.nsi) 配置文件，自动将精简优化后的绿色包编译为一键安装包：`outputs/FastEmbedSub_v1.0.0_Setup.exe` (约 206MB)。

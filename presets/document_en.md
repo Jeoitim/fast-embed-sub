@@ -88,12 +88,17 @@ locales:
     name: "WebM"
     desc: "Suitable for web embedding: VP9 encoding, outputs WebM format..."
     parameters:
-      flip_horizontal:
-        name: "Horizontal Flip (Flip H)"
-        group: "Geometry"
-        tooltip: "Whether to mirror the video horizontally"
+      super_res:
+        name: "Upsampling Algorithm"
+        group: "Resize"
+        tooltip: "Interpolation algorithm used for upscaling"
+        options:
+          "常规双立方 (Bicubic)": "Standard Bicubic (Bicubic)"
+          "ZNEDI3 (神经网络)": "ZNEDI3 (Neural Network)"
 ```
-When the user switches the GUI language, the preset's name, description, and parameter fields (`name`, `group`, `tooltip`) will automatically adapt to the corresponding translation.
+When the user switches the GUI language, the preset's name, description, and parameter fields (`name`, `group`, `tooltip`, and `options`) automatically use the corresponding translation.
+
+Define `options` as an `original value → display label` mapping. The original value is still submitted to the template; localization only changes what the user sees. For example, the UI displays `ZNEDI3 (Neural Network)` while `{super_res}` still receives `ZNEDI3 (神经网络)`. This prevents language changes from breaking existing template comparisons. Missing option translations safely fall back to the original text. A translated list with the same length is also supported, but mappings are recommended because they remain correct when options are reordered.
 
 ### 2.3 Dynamic Placeholders & Path Safety
 All placeholders use curly braces `{placeholder}`. **During compilation, the engine handles path formats and escaping safety rules automatically:**

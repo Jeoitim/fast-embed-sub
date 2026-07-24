@@ -1,4 +1,21 @@
 ﻿# 0. 自动生成 icon.ico 文件 (用于 Nuitka 和 NSIS 图标)
+$TranslationSource = "i18n/fast_embed_sub_zh_CN.ts"
+$TranslationCompiler = ".venv/Scripts/pyside6-lrelease.exe"
+if (Test-Path $TranslationSource) {
+    if (-not (Test-Path $TranslationCompiler)) {
+        $TranslationCompiler = "pyside6-lrelease"
+    }
+    if (Get-Command $TranslationCompiler -ErrorAction SilentlyContinue) {
+        & $TranslationCompiler $TranslationSource
+        if ($LASTEXITCODE -ne 0) {
+            throw "Qt 翻译资源编译失败。"
+        }
+        Write-Host " [OK] Qt 翻译资源编译完成" -ForegroundColor Green
+    } else {
+        Write-Host " [!] 未找到 pyside6-lrelease，将使用仓库中已有的 .qm 文件" -ForegroundColor Yellow
+    }
+}
+
 $IcoFile = "assets/icon.ico"
 $PngFile = "assets/icon.png"
 if (Test-Path $PngFile) {
@@ -101,7 +118,7 @@ Write-Host "打包完成！生成的程序位于: $DistPath" -ForegroundColor Cy
 
 Write-Host "`n正在执行资源物理搬运..." -ForegroundColor Yellow
 
-$FoldersToCopy = @("components", "presets", "assets")
+$FoldersToCopy = @("components", "presets", "assets", "i18n")
 
 foreach ($Folder in $FoldersToCopy) {
     if (Test-Path $Folder) {

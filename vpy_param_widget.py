@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QWidget, QFormLayout, QVBoxLayout, QHBoxLayout
-from PySide6.QtCore import Signal, Qt
+from PySide6.QtCore import QCoreApplication, Signal, Qt
 from qfluentwidgets import (
     DoubleSpinBox, SpinBox, ComboBox, CheckBox, LineEdit, Slider, BodyLabel,
     CardWidget, SubtitleLabel
@@ -25,6 +25,7 @@ class SliderWithValue(QWidget):
         self.slider.valueChanged.connect(self.on_value_changed)
         
         self._options = None
+        self._option_labels = None
         self._is_float = False
         self._float_range = None
         self._float_step = None
@@ -34,8 +35,12 @@ class SliderWithValue(QWidget):
         self._int_step = None
         self._is_setting_value = False
         
-    def setDiscreteOptions(self, options):
+    def setDiscreteOptions(self, options, labels=None):
         self._options = [str(o) for o in options]
+        if labels and len(labels) == len(self._options):
+            self._option_labels = [str(label) for label in labels]
+        else:
+            self._option_labels = list(self._options)
         self.slider.setRange(0, len(self._options) - 1)
         self.slider.setSingleStep(1)
         
@@ -113,7 +118,10 @@ class SliderWithValue(QWidget):
         self.valueChanged.emit()
         
     def update_label(self):
-        self.label.setText(str(self.value()))
+        if self._options is not None and self._option_labels is not None:
+            self.label.setText(self._option_labels[self.slider.value()])
+        else:
+            self.label.setText(str(self.value()))
 
 
 class VpyPresetParamWidget(QWidget):
@@ -149,7 +157,9 @@ class VpyPresetParamWidget(QWidget):
         # 1. 整理分组
         grouped = {}
         for param in parameters:
-            g_name = param.get("group", "常规设置")
+            g_name = param.get(
+                "group", QCoreApplication.translate("VpyPresetParamWidget", "General")
+            )
             if g_name not in grouped:
                 grouped[g_name] = []
             grouped[g_name].append(param)
@@ -179,6 +189,7 @@ class VpyPresetParamWidget(QWidget):
                 ptype = param.get("type", "text")
                 default = param.get("default")
                 tooltip = param.get("tooltip", "")
+                option_labels = param.get("option_labels")
                 
                 self.param_metadata[pid] = param
                 
@@ -203,9 +214,13 @@ class VpyPresetParamWidget(QWidget):
                 elif ptype == "select" or ptype == "selectbox":
                     w = ComboBox()
                     opts = param.get("options", [])
-                    w.addItems([str(o) for o in opts])
+                    labels = option_labels if option_labels and len(option_labels) == len(opts) else opts
+                    for option, label in zip(opts, labels):
+                        w.addItem(str(label), userData=option)
                     if default is not None:
-                        idx = w.findText(str(default))
+                        idx = w.findData(default)
+                        if idx == -1:
+                            idx = w.findData(str(default))
                         if idx != -1: w.setCurrentIndex(idx)
                     w.currentIndexChanged.connect(lambda: self.param_changed.emit())
                     widget = w
@@ -218,7 +233,7 @@ class VpyPresetParamWidget(QWidget):
                     w = SliderWithValue()
                     opts = param.get("options")
                     if opts:
-                        w.setDiscreteOptions(opts)
+                        w.setDiscreteOptions(opts, option_labels)
                     else:
                         rng = param.get("range", [0, 100])
                         step = param.get("step")
@@ -266,7 +281,8 @@ class VpyPresetParamWidget(QWidget):
             elif ptype in ("slider", "slidebar"):
                 values[pid] = widget.value()
             elif ptype == "select" or ptype == "selectbox":
-                values[pid] = widget.currentText()
+                value = widget.currentData()
+                values[pid] = widget.currentText() if value is None else value
             elif ptype == "bool":
                 values[pid] = widget.isChecked()
             else:
@@ -275,23 +291,33 @@ class VpyPresetParamWidget(QWidget):
 
     def reset_defaults(self):
         """将所有控件恢复为默认值"""
-        for pid, widget in self.widgets.items():
-            meta = self.param_metadata.get(pid, {})
-            default = meta.get("default")
-            ptype = meta.get("type", "text")
-            
-            if default is None:
+        defaults = {
+            pid: meta.get("default")
+            for pid, meta in self.param_metadata.items()
+            if meta.get("default") is not None
+        }
+        self.set_values(defaults)
+
+    def set_values(self, values):
+        """Restore raw parameter values independently from localized labels."""
+        for pid, value in values.items():
+            widget = self.widgets.get(pid)
+            if widget is None:
                 continue
-                
+            meta = self.param_metadata.get(pid, {})
+            ptype = meta.get("type", "text")
+
             if ptype == "float" or ptype == "integer":
-                widget.setValue(float(default) if ptype == "float" else int(default))
+                widget.setValue(float(value) if ptype == "float" else int(value))
             elif ptype in ("slider", "slidebar"):
-                widget.setValue(default)
+                widget.setValue(value)
             elif ptype == "select" or ptype == "selectbox":
-                idx = widget.findText(str(default))
+                idx = widget.findData(value)
+                if idx == -1:
+                    idx = widget.findData(str(value))
                 if idx != -1:
                     widget.setCurrentIndex(idx)
             elif ptype == "bool":
-                widget.setChecked(bool(default))
+                widget.setChecked(bool(value))
             else:
-                widget.setText(str(default))
+                widget.setText(str(value))

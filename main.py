@@ -2,10 +2,14 @@ import sys
 import os
 from PySide6.QtWidgets import QApplication, QSplashScreen
 from PySide6.QtGui import QPixmap, QColor
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QCoreApplication, QSettings, Qt
+
+from localization import TranslationManager
 
 def main():
     app = QApplication(sys.argv)
+    settings = QSettings("Jeoitim", "FastEmbedSub")
+    translation_manager = TranslationManager(app, settings.value("language", "zh"))
     
     # 1. 立即显示启动闪屏，提供即时视觉反馈
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,12 +21,20 @@ def main():
         scaled_pixmap = pixmap.scaled(200, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         splash = QSplashScreen(scaled_pixmap)
         splash.show()
-        splash.showMessage("正在启动 FastEmbedSub...", Qt.AlignBottom | Qt.AlignCenter, QColor("#FFFFFF"))
+        splash.showMessage(
+            QCoreApplication.translate("Startup", "Starting Fast Embed Sub..."),
+            Qt.AlignBottom | Qt.AlignCenter,
+            QColor("#FFFFFF"),
+        )
         app.processEvents()
 
     # 2. 延迟加载依赖库与重型 UI 模块
     if splash:
-        splash.showMessage("正在加载核心组件...", Qt.AlignBottom | Qt.AlignCenter, QColor("#FFFFFF"))
+        splash.showMessage(
+            QCoreApplication.translate("Startup", "Loading core components..."),
+            Qt.AlignBottom | Qt.AlignCenter,
+            QColor("#FFFFFF"),
+        )
         app.processEvents()
 
     try:
@@ -31,19 +43,29 @@ def main():
         if splash:
             splash.close()
         from PySide6.QtWidgets import QMessageBox
-        QMessageBox.critical(None, "缺少依赖",
-                             "未检测到 PySide6-Fluent-Widgets 库。请运行\n"
-                             "`pip install PySide6-Fluent-Widgets` 后重试。")
+        QMessageBox.critical(
+            None,
+            QCoreApplication.translate("Startup", "Missing Dependency"),
+            QCoreApplication.translate(
+                "Startup",
+                "PySide6-Fluent-Widgets was not found. Run\n"
+                "`pip install PySide6-Fluent-Widgets` and try again.",
+            ),
+        )
         sys.exit(1)
         
     setTheme(Theme.DARK)
     
     if splash:
-        splash.showMessage("正在初始化界面...", Qt.AlignBottom | Qt.AlignCenter, QColor("#FFFFFF"))
+        splash.showMessage(
+            QCoreApplication.translate("Startup", "Initializing interface..."),
+            Qt.AlignBottom | Qt.AlignCenter,
+            QColor("#FFFFFF"),
+        )
         app.processEvents()
         
     from gui import MainUI
-    window = MainUI()
+    window = MainUI(translation_manager)
     window.show()
     
     if splash:

@@ -88,12 +88,17 @@ locales:
     name: "WebM"
     desc: "Suitable for web embedding: VP9 encoding, outputs WebM format..."
     parameters:
-      flip_horizontal:
-        name: "Horizontal Flip (Flip H)"
-        group: "Geometry"
-        tooltip: "Whether to mirror the video horizontally"
+      super_res:
+        name: "Upsampling Algorithm"
+        group: "Resize"
+        tooltip: "Interpolation algorithm used for upscaling"
+        options:
+          "常规双立方 (Bicubic)": "Standard Bicubic (Bicubic)"
+          "ZNEDI3 (神经网络)": "ZNEDI3 (Neural Network)"
 ```
-当用户在 GUI 中将语言切换为对应语言（如 `en`）时，预设名称、描述以及各个自定义参数的 `name`、`group` 和 `tooltip` 都会自动应用此处定义的翻译，从而实现完全的语言解耦。
+当用户在 GUI 中将语言切换为对应语言（如 `en`）时，预设名称、描述以及各个自定义参数的 `name`、`group`、`tooltip` 和 `options` 都会自动应用此处定义的翻译。
+
+`options` 必须使用“原始值 → 显示文本”的映射。原始值仍会提交给模板，翻译只影响界面显示。例如用户看到 `ZNEDI3 (Neural Network)`，`{super_res}` 实际得到的仍是 `ZNEDI3 (神经网络)`。这样切换语言不会破坏模板中的既有判断逻辑。未翻译或遗漏的选项会安全回退到原始文本。也支持与原始选项等长的翻译列表，但推荐使用映射，以免调整选项顺序后错位。
 
 ### 2.3 动态变量与路径占位符
 所有的占位符均使用大括号 `{placeholder}` 语法。**在 VapourSynth 脚本被编译时，引擎会自动处理转义与格式转换：**

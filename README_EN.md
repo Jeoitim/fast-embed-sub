@@ -60,7 +60,7 @@ Refer to these guidelines if you want to inspect, modify, or compile Fast Embed 
 
 ### 2. File Architecture
 
-The core functionality is split across five self-contained modules:
+The core functionality is split across these modules:
 
 * **[main.py](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/main.py)**: Entry point. Displays the splash screen, asynchronously imports dependencies, applies dark themes, and shows the main window.
 * **[preset_parser.py](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/preset_parser.py)**: Preset parsing engine. Splits YAML parameters, VvapourSynth templates, and command lines. Resolves type-safe parameter values and path slashes.
@@ -72,6 +72,7 @@ The core functionality is split across five self-contained modules:
   * Checks for portable `vspipe.exe`. Sets environment variables (`PATH`, `PYTHONPATH`) on QProcess to run portable VapourSynth without installation dependencies.
   * Spawns `QProcess`. Wraps pipe commands inside `cmd.exe /c` on Windows.
   * Probes video duration to calibrate background task progress calculations, and deletes temporary `.vpy` files after execution.
+* **`localization.py` and `i18n/`**: Runtime language management through Qt `QTranslator`. Editable Chinese translations live in `.ts`, while the application loads the compiled `.qm`. The transcoding engine emits structured log events and has no UI-language dependency.
 
 ### 3. Local Development
 1. **Navigate to the Project**:
@@ -87,6 +88,13 @@ The core functionality is split across five self-contained modules:
    ```bash
    python main.py
    ```
+4. **Update UI translations** after changing `self.tr(...)` or `QCoreApplication.translate(...)` text:
+   ```powershell
+   .venv\Scripts\pyside6-lupdate.exe main.py gui.py localization.py vpy_param_widget.py -ts i18n\fast_embed_sub_zh_CN.ts
+   .venv\Scripts\pyside6-linguist.exe i18n\fast_embed_sub_zh_CN.ts
+   .venv\Scripts\pyside6-lrelease.exe i18n\fast_embed_sub_zh_CN.ts
+   ```
+   Commit both `.ts` and `.qm`. Runtime preset extensions remain self-contained through each preset YAML `locales` block.
 
 ### 4. Compilation & Packaging (`build.ps1`)
-The repository includes a packaging script [build.ps1](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/build.ps1) that compiles the python files using Nuitka, syncs assets and presets to the output folder `dist/`, and runs post-build UPX compression on output executables and DLLs to minimize publication size.
+The repository includes a packaging script [build.ps1](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/build.ps1) that compiles Qt translations and Python files, syncs assets, presets, and `i18n/` to the output folder, and runs post-build UPX compression on output executables and DLLs.
