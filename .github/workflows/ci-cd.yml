@@ -107,12 +107,24 @@ jobs:
           } else {
             $version = '1.0.1'
           }
-          $archive = "outputs\FastEmbedSub_v${version}_Portable.7z"
+          $portableName = "FastEmbedSub_v${version}_Portable"
+          $portableDir = Join-Path 'outputs' $portableName
+          $archiveName = "${portableName}.7z"
+          $archive = Join-Path 'outputs' $archiveName
+          if (Test-Path $portableDir) { Remove-Item $portableDir -Recurse -Force }
+          New-Item -ItemType Directory -Path $portableDir | Out-Null
+          Copy-Item -Path 'outputs\main.dist\*' -Destination $portableDir -Recurse -Force
           $sevenZip = (Get-Command 7z.exe -ErrorAction SilentlyContinue).Source
           if (-not $sevenZip) { $sevenZip = 'C:\Program Files\7-Zip\7z.exe' }
           if (-not (Test-Path $sevenZip)) { throw '7-Zip executable missing' }
-          & $sevenZip a -t7z -mx=9 $archive outputs\main.dist
-          if ($LASTEXITCODE -ne 0) { throw "7-Zip failed with exit code $LASTEXITCODE" }
+          Push-Location outputs
+          try {
+            & $sevenZip a -t7z -mx=9 $archiveName $portableName
+            if ($LASTEXITCODE -ne 0) { throw "7-Zip failed with exit code $LASTEXITCODE" }
+          } finally {
+            Pop-Location
+          }
+          Remove-Item $portableDir -Recurse -Force
           Get-FileHash $archive -Algorithm SHA256
 
       - name: Upload installer artifact
