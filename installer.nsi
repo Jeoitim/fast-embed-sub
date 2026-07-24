@@ -3,7 +3,7 @@
 # Target application details
 !define APP_NAME "FastEmbedSub"
 !ifndef APP_VERSION
-  !define APP_VERSION "1.0.0"
+  !define APP_VERSION "1.0.1"
 !endif
 !define APP_PUBLISHER "Jeoitim"
 !define APP_WEBSITE "https://github.com/Jeoitim/fast-embed-sub"

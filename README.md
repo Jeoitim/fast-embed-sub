@@ -111,5 +111,5 @@ VapourSynth 是基于 Python 的强大视频处理框架，在去色带、降噪
 3. **资源及依赖同步**：编译 Qt 翻译文件，并复制 `components/`、`presets/`、`assets/` 和 `i18n/` 至打包目录。
 4. **运行库优化 (体积瘦身)**：自动分析打包后的 `components` 运行库目录，删除不必要的 C/C++ 头文件 (`include/`)、`.pdb` 调试文件、`get-pip.py` 脚本以及所有的 `*.dist-info`/`*.egg-info` 元数据与 `__pycache__` 缓存，大幅减少文件个数并节省 ~25MB 体积。
 5. **安全 UPX 压缩**：调用系统的 UPX 压缩打包目录下的二进制文件。**脚本自动跳过了 `components/` 目录**（包含 FFmpeg 和 VapourSynth 的 DLL/EXE 插件），防止对外部运行库造成损坏，仅压缩主程序本身。
-6. **NSIS 安装包制作**：自动检测系统中的 `makensis` 编译器，读取 [installer.nsi](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/installer.nsi) 配置文件，自动将精简优化后的绿色包编译为一键安装包：`outputs/FastEmbedSub_v1.0.0_Setup.exe` (约 206MB)。
+6. **NSIS 安装包制作**：自动检测系统中的 `makensis` 编译器，读取 [installer.nsi](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/installer.nsi) 配置文件，自动将精简优化后的绿色包编译为一键安装包：`outputs/FastEmbedSub_v1.0.1_Setup.exe` (约 206MB)。
    * 安装包自带桌面与开始菜单快捷方式、卸载项注册，并具备安装路径注册表匹配与主程序验证的多重安全检查，防止卸载时误删用户其他文件。

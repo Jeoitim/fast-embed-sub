@@ -1,4 +1,8 @@
 ﻿# 0. 自动生成 icon.ico 文件 (用于 Nuitka 和 NSIS 图标)
+param(
+    [string]$Version = "1.0.1"
+)
+
 $TranslationSource = "i18n/fast_embed_sub_zh_CN.ts"
 $TranslationCompiler = ".venv/Scripts/pyside6-lrelease.exe"
 if (Test-Path $TranslationSource) {
@@ -58,6 +62,7 @@ $NuitkaArgs = @(
     "--show-progress",
     # MSVC/SCons 的共享缓存锁在高并发下容易超时；单并发更稳定，CI 也更可复现。
     "--jobs=1",
+    "--assume-yes-for-downloads",
     "--plugin-enable=pyside6",
     "--windows-console-mode=disable",
     "--output-dir=$OutputDir",
@@ -223,7 +228,7 @@ if (Get-Command "makensis" -ErrorAction SilentlyContinue) {
 
 if ($MakeNsisPath -ne "") {
     Write-Host "`n检测到 NSIS，正在制作安装包..." -ForegroundColor Yellow
-    & $MakeNsisPath /DAPP_DIST_DIR="$DistPath" installer.nsi
+    & $MakeNsisPath "/DAPP_VERSION=$Version" "/DAPP_DIST_DIR=$DistPath" installer.nsi
     if ($LASTEXITCODE -eq 0) {
         Write-Host " [OK] 安装包已成功制作并保存至 outputs 目录！" -ForegroundColor Green
     } else {

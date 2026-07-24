@@ -71,7 +71,13 @@ jobs:
 
       - name: Build Nuitka + NSIS package
         shell: pwsh
-        run: pwsh -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $version = $env:GITHUB_REF_NAME.Substring(1)
+            pwsh -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -Version $version
+          } else {
+            pwsh -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
+          }
 
       - name: Verify package
         shell: pwsh
@@ -81,11 +87,25 @@ jobs:
           if (-not $installer) { throw 'NSIS installer missing' }
           Get-FileHash $installer.FullName -Algorithm SHA256
 
+      - name: Create portable 7z archive
+        shell: pwsh
+        run: |
+          $version = if ($env:GITHUB_REF -like 'refs/tags/v*') { $env:GITHUB_REF_NAME.Substring(1) } else { '1.0.1' }
+          $archive = "outputs\FastEmbedSub_v${version}_Portable.7z"
+          $sevenZip = (Get-Command 7z.exe -ErrorAction SilentlyContinue).Source
+          if (-not $sevenZip) { $sevenZip = 'C:\Program Files\7-Zip\7z.exe' }
+          if (-not (Test-Path $sevenZip)) { throw '7-Zip executable missing' }
+          & $sevenZip a -t7z -mx=9 $archive outputs\main.dist
+          if ($LASTEXITCODE -ne 0) { throw "7-Zip failed with exit code $LASTEXITCODE" }
+          Get-FileHash $archive -Algorithm SHA256
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v6
         with:
           name: FastEmbedSub-windows-installer
-          path: outputs/FastEmbedSub_v*_Setup.exe
+          path: |
+            outputs/FastEmbedSub_v*_Setup.exe
+            outputs/FastEmbedSub_v*_Portable.7z
           if-no-files-found: error
 
   release:
@@ -108,6 +128,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $installer = Get-ChildItem release-assets -Filter 'FastEmbedSub_v*_Setup.exe' | Select-Object -First 1
-          if (-not $installer) { throw 'Release installer missing' }
-          gh release create $env:GITHUB_REF_NAME $installer.FullName --title "FastEmbedSub $env:GITHUB_REF_NAME" --generate-notes
+          $assets = Get-ChildItem release-assets -File
+          if (-not $assets) { throw 'Release assets missing' }
+          gh release create $env:GITHUB_REF_NAME $assets.FullName --title "FastEmbedSub $env:GITHUB_REF_NAME" --generate-notes
