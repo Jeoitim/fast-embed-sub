@@ -56,9 +56,10 @@ $NuitkaArgs = @(
     "--msvc=latest",
     "--show-memory",
     "--show-progress",
-    "--jobs=$env:NUMBER_OF_PROCESSORS",
+    # MSVC/SCons 的共享缓存锁在高并发下容易超时；单并发更稳定，CI 也更可复现。
+    "--jobs=1",
     "--plugin-enable=pyside6",
-    "--windows-disable-console",
+    "--windows-console-mode=disable",
     "--output-dir=$OutputDir",
     "--output-filename=FastEmbedSub",
     "--lto=yes"
@@ -101,17 +102,40 @@ $NuitkaArgs += "--follow-imports"
 $NuitkaArgs += "main.py"
 
 Write-Host "开始运行 Nuitka 进行 Standalone 编译..." -ForegroundColor Cyan
-$NuitkaExe = "nuitka"
-if (Test-Path ".venv\Scripts\nuitka.exe") {
-    $NuitkaExe = ".venv\Scripts\nuitka.exe"
+$NuitkaExe = $null
+foreach ($Candidate in @(".venv\Scripts\nuitka.exe", ".venv\Scripts\nuitka.cmd")) {
+    if (Test-Path $Candidate) {
+        $NuitkaExe = $Candidate
+        break
+    }
+}
+if (-not $NuitkaExe) {
+    $NuitkaCommand = Get-Command "nuitka" -ErrorAction SilentlyContinue
+    if ($NuitkaCommand) {
+        $NuitkaExe = $NuitkaCommand.Source
+    }
+}
+if (-not $NuitkaExe) {
+    throw "未找到 Nuitka。请先在当前 Python 环境安装 nuitka。"
 }
 & $NuitkaExe @NuitkaArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "Nuitka 编译失败，退出码: $LASTEXITCODE"
+}
 
 
 # 4. 强制搬运资源文件夹 (保底方案)
 $DistPath = "$OutputDir/FastEmbedSub.dist"
 if (-not (Test-Path $DistPath)) {
-    $DistPath = Get-ChildItem -Path "$OutputDir/*.dist" | Select-Object -ExpandProperty FullName -First 1
+    $DistPath = Get-ChildItem -Path "$OutputDir/*.dist" -Directory |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -ExpandProperty FullName -First 1
+}
+if (-not $DistPath -or -not (Test-Path $DistPath)) {
+    throw "Nuitka 编译完成后未找到 .dist 输出目录。"
+}
+if (-not (Test-Path (Join-Path $DistPath "FastEmbedSub.exe"))) {
+    throw "Nuitka 编译未生成 FastEmbedSub.exe，停止后续资源同步和 NSIS 打包。"
 }
 
 Write-Host "打包完成！生成的程序位于: $DistPath" -ForegroundColor Cyan
@@ -203,11 +227,10 @@ if ($MakeNsisPath -ne "") {
     if ($LASTEXITCODE -eq 0) {
         Write-Host " [OK] 安装包已成功制作并保存至 outputs 目录！" -ForegroundColor Green
     } else {
-        Write-Host " [!] 制作安装包时出错！" -ForegroundColor Red
+        throw "NSIS 制作安装包失败，退出码: $LASTEXITCODE"
     }
 } else {
-    Write-Host "`n提示：未检测到 NSIS (makensis.exe)。" -ForegroundColor Yellow
-    Write-Host "如果你想自动制作 exe 安装包，请前往 https://nsis.sourceforge.io 下载并安装 NSIS，然后将其所在目录加入到系统环境变量 PATH 中。" -ForegroundColor Yellow
+    throw "未检测到 NSIS (makensis.exe)。请先安装 NSIS，或将其目录加入 PATH。"
 }
 
 Write-Host "`n打包与资源同步完成！生成的程序位于: $DistPath" -ForegroundColor Cyan
