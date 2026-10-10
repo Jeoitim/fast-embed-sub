@@ -7,14 +7,6 @@ on:
       - master
     tags:
       - "v*"
-  workflow_dispatch:
-    inputs:
-      release_tag:
-        description: "Release tag to publish, for example v1.0.1"
-        required: true
-        default: "v1.0.1"
-        type: string
-
 permissions:
   contents: read
 
@@ -50,8 +42,8 @@ jobs:
         run: python -c "import PySide6, qfluentwidgets, yaml, PIL; print('imports ok')"
 
   package:
-    name: Package Windows installer
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')))
+    name: Package Windows Portable-Core
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: test
     runs-on: windows-latest
 
@@ -72,24 +64,13 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pillow
 
-      # build.ps1 currently requires NSIS even when the CI artifact is Portable-Core.
-      # The generated installer is intentionally not uploaded or released by CI.
-      - name: Install NSIS (build script prerequisite)
-        shell: pwsh
-        run: choco install nsis -y --no-progress
-
-      - name: Build Nuitka + NSIS package
+      # VapourSynth components are distributed separately; CI builds only Core.
+      - name: Build Portable-Core (skip installer)
         shell: pwsh
         run: |
-          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-            $version = '${{ inputs.release_tag }}'.TrimStart('v')
-            pwsh -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -Version $version
-          } elseif ($env:GITHUB_REF -like 'refs/tags/v*') {
-            $version = $env:GITHUB_REF_NAME.Substring(1)
-            pwsh -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -Version $version
-          } else {
-            pwsh -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
-          }
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          pwsh -NoProfile -ExecutionPolicy Bypass -File .\build.ps1 -Version $version -SkipInstaller
+          if ($LASTEXITCODE -ne 0) { throw "Core build failed with exit code $LASTEXITCODE" }
 
       - name: Verify package
         shell: pwsh
@@ -100,13 +81,7 @@ jobs:
       - name: Create portable 7z archive
         shell: pwsh
         run: |
-          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-            $version = '${{ inputs.release_tag }}'.TrimStart('v')
-          } elseif ($env:GITHUB_REF -like 'refs/tags/v*') {
-            $version = $env:GITHUB_REF_NAME.Substring(1)
-          } else {
-            $version = '1.0.1'
-          }
+          $version = $env:GITHUB_REF_NAME.Substring(1)
           $portableName = "FastEmbedSub_v${version}_Portable-Core"
           $portableDir = Join-Path 'outputs' $portableName
           $archiveName = "${portableName}.7z"

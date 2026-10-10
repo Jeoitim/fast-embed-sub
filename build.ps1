@@ -1,6 +1,7 @@
 ﻿# 0. 自动生成 icon.ico 文件 (用于 Nuitka 和 NSIS 图标)
 param(
-    [string]$Version = "1.0.1"
+    [string]$Version = "1.0.1",
+    [switch]$SkipInstaller
 )
 
 $TranslationSource = "i18n/fast_embed_sub_zh_CN.ts"
@@ -217,25 +218,29 @@ if ($UseUpx) {
 }
 
 # 7. 检测并执行 NSIS 安装包制作
-$MakeNsisPath = ""
-if (Get-Command "makensis" -ErrorAction SilentlyContinue) {
-    $MakeNsisPath = "makensis"
-} elseif (Test-Path "C:\Program Files (x86)\NSIS\makensis.exe") {
-    $MakeNsisPath = "C:\Program Files (x86)\NSIS\makensis.exe"
-} elseif (Test-Path "C:\Program Files\NSIS\makensis.exe") {
-    $MakeNsisPath = "C:\Program Files\NSIS\makensis.exe"
-}
-
-if ($MakeNsisPath -ne "") {
-    Write-Host "`n检测到 NSIS，正在制作安装包..." -ForegroundColor Yellow
-    & $MakeNsisPath "/DAPP_VERSION=$Version" "/DAPP_DIST_DIR=$DistPath" installer.nsi
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host " [OK] 安装包已成功制作并保存至 outputs 目录！" -ForegroundColor Green
-    } else {
-        throw "NSIS 制作安装包失败，退出码: $LASTEXITCODE"
-    }
+if ($SkipInstaller) {
+    Write-Host "`n已跳过 NSIS 安装包制作，仅生成便携程序目录。" -ForegroundColor Green
 } else {
-    throw "未检测到 NSIS (makensis.exe)。请先安装 NSIS，或将其目录加入 PATH。"
+    $MakeNsisPath = ""
+    if (Get-Command "makensis" -ErrorAction SilentlyContinue) {
+        $MakeNsisPath = "makensis"
+    } elseif (Test-Path "C:\Program Files (x86)\NSIS\makensis.exe") {
+        $MakeNsisPath = "C:\Program Files (x86)\NSIS\makensis.exe"
+    } elseif (Test-Path "C:\Program Files\NSIS\makensis.exe") {
+        $MakeNsisPath = "C:\Program Files\NSIS\makensis.exe"
+    }
+
+    if ($MakeNsisPath -ne "") {
+        Write-Host "`n检测到 NSIS，正在制作安装包..." -ForegroundColor Yellow
+        & $MakeNsisPath "/DAPP_VERSION=$Version" "/DAPP_DIST_DIR=$DistPath" installer.nsi
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host " [OK] 安装包已成功制作并保存至 outputs 目录！" -ForegroundColor Green
+        } else {
+            throw "NSIS 制作安装包失败，退出码: $LASTEXITCODE"
+        }
+    } else {
+        throw "未检测到 NSIS (makensis.exe)。请先安装 NSIS，或使用 -SkipInstaller 仅构建便携程序。"
+    }
 }
 
 Write-Host "`n打包与资源同步完成！生成的程序位于: $DistPath" -ForegroundColor Cyan

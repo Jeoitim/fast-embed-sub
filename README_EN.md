@@ -158,4 +158,9 @@ The core functionality is split across these modules:
    Commit both `.ts` and `.qm`. Runtime preset extensions remain self-contained through each preset YAML `locales` block.
 
 ### 4. Compilation & Packaging (`build.ps1`)
+
+**Cloud builds:** Normal `master` pushes and pull requests run compilation and dependency import checks only. Pushing a `v*` tag builds and uploads a `Portable-Core.7z` artifact. VapourSynth components are not stored in the repository, so GitHub Actions uses `-SkipInstaller` to skip NSIS. Prepare the Setup installer and Components archive locally and upload them to the release page.
+
+Run `./build.ps1 -Version 1.0.1` locally to create the complete installer, or add `-SkipInstaller` to build only the portable application directory.
+
 The repository includes a packaging script [build.ps1](build.ps1) that compiles Qt translations and Python files, syncs assets, presets, and `i18n/` to the output folder, and runs post-build UPX compression on output executables and DLLs.

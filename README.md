@@ -165,6 +165,11 @@ VapourSynth 是基于 Python 的强大视频处理框架，在去色带、降噪
    `.ts` 和 `.qm` 均需随代码提交。预设属于运行时扩展内容，继续通过各预设 YAML 中的 `locales` 区块提供翻译。
 
 ### 4. 编译打包与安装包制作说明 (`build.ps1`)
+
+**云端构建策略**：普通 `master` 推送和 PR 只运行代码编译检查与依赖导入检查；推送 `v*` tag 才会构建并上传 `Portable-Core.7z` 构建产物。VapourSynth 组件未纳入仓库，因此 GitHub Actions 使用 `-SkipInstaller` 跳过 NSIS，Setup 安装包和 Components 压缩包仍需在本地准备并上传发布页。
+
+本地执行 `./build.ps1 -Version 1.0.1` 会制作完整安装包；如只需便携程序目录，可使用 `./build.ps1 -Version 1.0.1 -SkipInstaller`。
+
 项目根目录下提供了用于编译打包和安装包制作的 PowerShell 脚本 [build.ps1](build.ps1)。
 运行该脚本会全自动执行以下流程：
 1. **自动生成图标**：读取 `assets/icon.png` 自动转换为支持 Windows 的多尺寸 `assets/icon.ico` 图标。
