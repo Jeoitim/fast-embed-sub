@@ -1,8 +1,67 @@
 [English README](README_EN.md) | 简体中文
 
+<p align="center">
+  <img src="assets/icon.png" alt="Fast Embed Sub 应用图标" width="96">
+</p>
+
 # Fast Embed Sub
 
-Fast Embed Sub 是一款轻量级、跨平台的极简视频字幕压制工具。基于 **PySide6** 和 **FFmpeg** 构建，并融入了 Fluent 现代设计风格。它旨在提供一个极其简单、流畅的视频压制体验，用户只需简单的拖拽操作，即可快速完成专业级的硬字幕嵌入与视频转码。
+Fast Embed Sub 是一款轻量级的视频字幕压制工具，基于 **PySide6** 和 **FFmpeg** 构建，采用 Fluent 风格界面。通过拖拽视频、选择字幕和压制预设，即可完成硬字幕嵌入与视频转码。
+
+**目前仅支持 64 位 Windows。** 已打包版本无需另行安装 Python。
+
+**[下载最新版本](https://github.com/Jeoitim/fast-embed-sub/releases/latest)** · [查看所有发布](https://github.com/Jeoitim/fast-embed-sub/releases)
+
+## 界面预览
+
+### 视频、字幕与输出设置
+
+![Fast Embed Sub 主界面：选择视频和字幕，设置输出目录、封装格式与压制预设](assets/screenshots/home.png)
+
+### 预设参数
+
+![Fast Embed Sub 预设参数界面：字幕渲染引擎、画面翻转、缩放与升采样设置](assets/screenshots/preset-settings.png)
+
+## 下载与安装
+
+进入 [GitHub Releases](https://github.com/Jeoitim/fast-embed-sub/releases/latest)，在发布页底部的 **Assets（附件）** 中选择下载。当前 v1.0.1 提供以下文件：
+
+| 使用方式 | 需要下载的文件 | 说明 |
+| --- | --- | --- |
+| 安装版（推荐） | [FastEmbedSub_v1.0.1_Setup.exe](https://github.com/Jeoitim/fast-embed-sub/releases/download/v1.0.1/FastEmbedSub_v1.0.1_Setup.exe) | 包含主程序和运行组件，按安装向导完成安装即可使用。 |
+| 便携版 | [FastEmbedSub_v1.0.1_Portable-Core.7z](https://github.com/Jeoitim/fast-embed-sub/releases/download/v1.0.1/FastEmbedSub_v1.0.1_Portable-Core.7z) **和** [FastEmbedSub_v1.0.1_Portable-Components.7z](https://github.com/Jeoitim/fast-embed-sub/releases/download/v1.0.1/FastEmbedSub_v1.0.1_Portable-Components.7z) | 两个压缩包都需要下载，按下面的目录结构合并后运行。 |
+
+### 安装版
+
+1. 下载 `FastEmbedSub_v1.0.1_Setup.exe`。
+2. 双击运行，按照安装向导选择安装目录并完成安装；系统要求时允许管理员权限。
+3. 从桌面或开始菜单的快捷方式启动 **FastEmbedSub**。安装版已包含运行组件，无需再下载 Core 或 Components 压缩包。
+
+### 便携版
+
+1. 下载**同一版本**的 `Portable-Core.7z` 和 `Portable-Components.7z`，使用支持 `.7z` 的解压工具解压。
+2. 先解压 Core，得到 `FastEmbedSub_v1.0.1_Portable-Core` 文件夹，其中包含 `FastEmbedSub.exe`、预设、界面资源和 FFmpeg。
+3. **将 Components 压缩包解压到上述主程序文件夹内的 `components` 目录。** 此压缩包内直接包含 `vapoursynth` 文件夹；如果先单独解压，只需把该文件夹复制到 `components` 下。
+4. 确认 `components/vapoursynth/vspipe.exe` 存在，再双击 `FastEmbedSub.exe` 启动。
+
+合并后的目录应如下所示（其余随 Core 解压的文件请保留）：
+
+```text
+FastEmbedSub_v1.0.1_Portable-Core/
+├── FastEmbedSub.exe
+├── assets/
+├── i18n/
+├── presets/
+└── components/
+    ├── ffmpeg.exe
+    └── vapoursynth/
+        ├── vspipe.exe
+        └── ...
+```
+
+不要把 `vapoursynth` 放在主程序根目录，也不要多套一层 `Portable-Components` 文件夹。缺少 Components 会导致字幕渲染及依赖 VapourSynth 的处理功能无法使用。
+
+发布页的 **Source code (zip / tar.gz)** 是源码归档，普通用户应下载上表中的安装包或便携包。
 
 ---
 
@@ -11,15 +70,17 @@ Fast Embed Sub 是一款轻量级、跨平台的极简视频字幕压制工具�
 如果你只是想压制视频和嵌入字幕，Fast Embed Sub 提供了极其傻瓜式的操作：
 
 ### 核心功能
+
 * 🎛️ **极简拖拽**：支持将视频、字幕文件或输出文件夹直接拖入软件界面，无需繁琐寻路。
 * 🔍 **智能关联**：输入视频后，软件会自动扫描视频同目录下同名的 `.srt` / `.ass` / `.ssa` 字幕文件并自动填入。
 * ⚡ **多任务队列**：支持将多个压制任务依次“加入任务队列”，后台依次自动压制，不占用前台操作。
 * 📝 **实时进度与日志**：提供直观的进度条以及详细的底层 FFmpeg 命令行实时输出日志，压制细节一目了然。
 
 ### 快速使用步骤
-1. **下载或运行软件**：启动 Fast Embed Sub。
+
+1. **下载并启动软件**：按上面的安装版或便携版说明完成准备，启动 Fast Embed Sub。
 2. **选择源文件**：将你的视频拖入软件，若有同名同目录字幕，软件会自动识别；亦可手动选择。
-3. **选择压制预设**：在下拉列表中选择一个适合你的预设（如“默认”、“极速”或“Vpy测试预设”）。
+3. **选择压制预设**：在下拉列表中选择一个适合你的预设（如“默认”、“极速”或“社交媒体”）。
 4. **开始压制**：点击右下角“加入任务队列”按钮。压制会自动在后台队列中启动，你可以在“任务队列”选项卡中查看当前进度或取消任务。
 
 ---
@@ -68,11 +129,11 @@ VapourSynth 是基于 Python 的强大视频处理框架，在去色带、降噪
 
 整个应用程序由以下核心源文件构成：
 
-* **[main.py](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/main.py)**：入口程序。负责应用启动闪屏渲染（SplashScreen）、异步加载重型组件、应用 Fluent 风格全局暗色主题、以及窗口初始化展示。
-* **[preset_parser.py](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/preset_parser.py)**：预设解析核心。通过正则与切片技术分离 YAML 声明、Vpy 模板和命令行模板。包含统一替换路径和转义字符串的 `compile_vpy_script` 静态方法。
-* **[vpy_param_widget.py](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/vpy_param_widget.py)**：动态 UI 面板。根据 `PresetParser` 读取的 YAML 参数配置，动态在界面上实例化控件，对参数输入范围及精度进行 Qt 约束校验，并向上提供当前参数值的字典。
-* **[gui.py](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/gui.py)**：主窗口与交互界面。基于 `FluentWindow` 构建，处理拖拽事件（DragDropLineEdit）、更新源文件信息、管理界面卡片联动、并在预设下拉列表变更时动态挂载或隐藏 `vpy_param_widget`。
-* **[engine.py](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/engine.py)**：转码与队列调度引擎。
+* **[main.py](main.py)**：入口程序。负责应用启动闪屏渲染（SplashScreen）、异步加载重型组件、应用 Fluent 风格全局暗色主题、以及窗口初始化展示。
+* **[preset_parser.py](preset_parser.py)**：预设解析核心。通过正则与切片技术分离 YAML 声明、Vpy 模板和命令行模板。包含统一替换路径和转义字符串的 `compile_vpy_script` 静态方法。
+* **[vpy_param_widget.py](vpy_param_widget.py)**：动态 UI 面板。根据 `PresetParser` 读取的 YAML 参数配置，动态在界面上实例化控件，对参数输入范围及精度进行 Qt 约束校验，并向上提供当前参数值的字典。
+* **[gui.py](gui.py)**：主窗口与交互界面。基于 `FluentWindow` 构建，处理拖拽事件（DragDropLineEdit）、更新源文件信息、管理界面卡片联动、并在预设下拉列表变更时动态挂载或隐藏 `vpy_param_widget`。
+* **[engine.py](engine.py)**：转码与队列调度引擎。
   * 将任务放入 `TranscodeTask` 状态模型并调度。
   * 针对 Vpy 预设，在系统 Temp 目录下写入经过安全转义编译的临时 `.vpy` 文件。
   * 搜索并定位便携版 `vspipe.exe`。若检测到 `components/vapoursynth`，在 `QProcessEnvironment` 中注入便携版 `PATH` 与 `PYTHONPATH` 路径。
@@ -104,12 +165,12 @@ VapourSynth 是基于 Python 的强大视频处理框架，在去色带、降噪
    `.ts` 和 `.qm` 均需随代码提交。预设属于运行时扩展内容，继续通过各预设 YAML 中的 `locales` 区块提供翻译。
 
 ### 4. 编译打包与安装包制作说明 (`build.ps1`)
-项目根目录下提供了用于编译打包和安装包制作的 PowerShell 脚本 [build.ps1](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/build.ps1)。
+项目根目录下提供了用于编译打包和安装包制作的 PowerShell 脚本 [build.ps1](build.ps1)。
 运行该脚本会全自动执行以下流程：
 1. **自动生成图标**：读取 `assets/icon.png` 自动转换为支持 Windows 的多尺寸 `assets/icon.ico` 图标。
 2. **Nuitka STANDALONE 编译**：自动调用 `.venv` 环境，将 Python 代码编译为高性能的 Windows 独立绿色包，生成在 `outputs/main.dist/` 中。
 3. **资源及依赖同步**：编译 Qt 翻译文件，并复制 `components/`、`presets/`、`assets/` 和 `i18n/` 至打包目录。
 4. **运行库优化 (体积瘦身)**：自动分析打包后的 `components` 运行库目录，删除不必要的 C/C++ 头文件 (`include/`)、`.pdb` 调试文件、`get-pip.py` 脚本以及所有的 `*.dist-info`/`*.egg-info` 元数据与 `__pycache__` 缓存，大幅减少文件个数并节省 ~25MB 体积。
 5. **安全 UPX 压缩**：调用系统的 UPX 压缩打包目录下的二进制文件。**脚本自动跳过了 `components/` 目录**（包含 FFmpeg 和 VapourSynth 的 DLL/EXE 插件），防止对外部运行库造成损坏，仅压缩主程序本身。
-6. **NSIS 安装包制作**：自动检测系统中的 `makensis` 编译器，读取 [installer.nsi](file:///C:/Users/timrt/Documents/02MyDevelopment/fast-embed-sub/installer.nsi) 配置文件，自动将精简优化后的绿色包编译为一键安装包：`outputs/FastEmbedSub_v1.0.1_Setup.exe` (约 206MB)。
+6. **NSIS 安装包制作**：自动检测系统中的 `makensis` 编译器，读取 [installer.nsi](installer.nsi) 配置文件，自动将精简优化后的绿色包编译为一键安装包：`outputs/FastEmbedSub_v1.0.1_Setup.exe` (约 206MB)。
    * 安装包自带桌面与开始菜单快捷方式、卸载项注册，并具备安装路径注册表匹配与主程序验证的多重安全检查，防止卸载时误删用户其他文件。
